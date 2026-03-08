@@ -11,6 +11,8 @@ const platformColors: Record<string, string> = {
     "bg-emerald-100/80 text-emerald-800 border-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
   notion:
     "bg-stone-100/80 text-stone-700 border-stone-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
+  manual:
+    "bg-violet-100/80 text-violet-800 border-violet-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
   unknown:
     "bg-neutral-100/80 text-neutral-600 border-neutral-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
 };
@@ -20,6 +22,7 @@ const platformLabels: Record<string, string> = {
   calcom: "Cal.com",
   google: "Google Calendar",
   notion: "Notion Calendar",
+  manual: "Manual",
   unknown: "Unknown",
 };
 

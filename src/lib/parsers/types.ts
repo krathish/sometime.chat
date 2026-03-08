@@ -3,7 +3,7 @@ export interface TimeSlot {
   end: string; // ISO 8601
 }
 
-export type Platform = "calendly" | "calcom" | "google" | "notion" | "unknown";
+export type Platform = "calendly" | "calcom" | "google" | "notion" | "manual" | "unknown";
 
 export interface ParseResult {
   platform: Platform;

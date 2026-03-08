@@ -108,6 +108,125 @@ body {
   box-shadow: var(--panel-shadow);
 }
 
+/* Aqua tab toggle */
+.aqua-tab-group {
+  display: inline-flex;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--input-shadow);
+  padding: 1px;
+  gap: 1px;
+}
+
+.aqua-tab {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.aqua-tab:hover {
+  color: var(--foreground);
+}
+
+.aqua-tab-active {
+  background: var(--aqua-btn);
+  color: #fff;
+  text-shadow: 0 -1px 0 rgba(0,0,0,0.15);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+
+/* Week calendar */
+.week-cal-grid {
+  font-variant-numeric: tabular-nums;
+}
+
+.week-cal-header {
+  display: grid;
+  grid-template-columns: 38px repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #fafafa 0%, #efefef 100%);
+}
+
+.week-cal-day-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  color: var(--muted);
+}
+
+.week-cal-today-header {
+  color: var(--accent);
+}
+
+.week-cal-today-num {
+  background: var(--accent);
+  color: #fff;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 10px;
+}
+
+.week-cal-body {
+  display: grid;
+  grid-template-columns: 38px repeat(7, 1fr);
+  position: relative;
+}
+
+.week-cal-time-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.week-cal-time-label {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0 4px;
+  position: relative;
+  top: -5px;
+}
+
+.week-cal-day-col {
+  position: relative;
+  border-left: 1px solid rgba(0,0,0,0.06);
+}
+
+.week-cal-today-col {
+  background: rgba(26,130,247,0.03);
+}
+
+.week-cal-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.week-cal-slot {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: linear-gradient(180deg, #6CB4F8 0%, #1A82F7 100%);
+  border-radius: 4px;
+  opacity: 0.85;
+  min-height: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
