@@ -91,6 +91,13 @@ body {
   touch-action: manipulation;
 }
 
+@media (max-width: 639px) {
+  .aqua-input {
+    height: 38px;
+    font-size: 16px;
+  }
+}
+
 .aqua-input:focus {
   border-color: var(--accent);
   box-shadow: var(--input-shadow), 0 0 0 2.5px rgba(26,130,247,0.3);
@@ -143,8 +150,14 @@ body {
 }
 
 /* Week calendar */
+.week-cal-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .week-cal-grid {
   font-variant-numeric: tabular-nums;
+  min-width: 420px;
 }
 
 .week-cal-header {
@@ -225,6 +238,88 @@ body {
   opacity: 0.85;
   min-height: 4px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+
+/* Interactive calendar */
+.interactive-cal-col {
+  cursor: crosshair;
+  user-select: none;
+}
+
+.interactive-cal-preview {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: rgba(26, 130, 247, 0.15);
+  border: 1.5px dashed rgba(26, 130, 247, 0.5);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.interactive-cal-selected {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: linear-gradient(180deg, #6CB4F8 0%, #1A82F7 100%);
+  border-radius: 4px;
+  min-height: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  z-index: 2;
+  cursor: default;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 2px 4px;
+  overflow: hidden;
+}
+
+.interactive-cal-label {
+  font-size: 9px;
+  font-weight: 500;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.interactive-cal-remove {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s ease, background 0.1s ease;
+}
+
+.interactive-cal-selected:hover .interactive-cal-remove {
+  opacity: 1;
+}
+
+.interactive-cal-remove:hover {
+  background: rgba(255,255,255,0.4);
+}
+
+@media (max-width: 639px) {
+  .interactive-cal-remove {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 639px) {
+  .week-cal-grid {
+    min-width: 480px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

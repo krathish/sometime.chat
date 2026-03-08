@@ -60,7 +60,7 @@ export async function POST(
   }
 
   const body = await req.json();
-  const { url, personName, slots } = body;
+  const { url, personName, slots, timezone } = body;
 
   if (!personName) {
     return NextResponse.json(
@@ -84,6 +84,7 @@ export async function POST(
       url: "manual",
       personName,
       platform: "manual",
+      timezone: timezone || null,
       availabilityJson: JSON.stringify(result.valid),
       parseError: null,
     });
@@ -118,6 +119,7 @@ export async function POST(
     url,
     personName,
     platform,
+    timezone: timezone || null,
     availabilityJson:
       parseResult.slots.length > 0
         ? JSON.stringify(parseResult.slots)

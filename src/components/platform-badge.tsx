@@ -9,6 +9,8 @@ const platformColors: Record<string, string> = {
     "bg-orange-100/80 text-orange-800 border-orange-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
   google:
     "bg-emerald-100/80 text-emerald-800 border-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
+  gcal:
+    "bg-emerald-100/80 text-emerald-800 border-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
   notion:
     "bg-stone-100/80 text-stone-700 border-stone-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
   manual:
@@ -20,7 +22,8 @@ const platformColors: Record<string, string> = {
 const platformLabels: Record<string, string> = {
   calendly: "Calendly",
   calcom: "Cal.com",
-  google: "Google Calendar",
+  google: "Google ICS",
+  gcal: "Google Calendar",
   notion: "Notion Calendar",
   manual: "Manual",
   unknown: "Unknown",

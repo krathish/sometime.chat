@@ -16,8 +16,24 @@ export const links = sqliteTable("links", {
   url: text("url").notNull(),
   personName: text("person_name").notNull(),
   platform: text("platform").notNull().default("unknown"),
+  timezone: text("timezone"),
   availabilityJson: text("availability_json"),
   parseError: text("parse_error"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const calendarAccounts = sqliteTable("calendar_accounts", {
+  id: text("id").primaryKey(),
+  linkId: text("link_id")
+    .notNull()
+    .references(() => links.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull().default("google"),
+  email: text("email"),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

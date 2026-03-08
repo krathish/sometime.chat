@@ -1,15 +1,26 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface TimeSlot {
   start: string;
   end: string;
 }
 
+interface LevelSlot {
+  start: string;
+  end: string;
+  count: number;
+  total: number;
+  available: string[];
+  unavailable: string[];
+}
+
 interface WeekCalendarProps {
   slots: TimeSlot[];
+  levelSlots?: LevelSlot[];
   label?: string;
 }
 
@@ -51,7 +62,8 @@ function formatMonthRange(monday: Date): string {
   return `${m1} ${monday.getDate()} \u2013 ${m2} ${sunday.getDate()}, ${y}`;
 }
 
-export function WeekCalendar({ slots, label }: WeekCalendarProps) {
+export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
+  const hasLevels = levelSlots && levelSlots.length > 0;
   const [weekOffset, setWeekOffset] = useState(() => {
     if (slots.length === 0) return 0;
     const earliest = new Date(
@@ -74,24 +86,39 @@ export function WeekCalendar({ slots, label }: WeekCalendarProps) {
     return getMonday(addDays(today, weekOffset * 7));
   }, [weekOffset]);
 
-  const { hourStart, hourEnd, weekSlots } = useMemo(() => {
+  const { hourStart, hourEnd, weekSlots, weekLevelSlots } = useMemo(() => {
     const weekDays: Date[] = [];
     for (let i = 0; i < 7; i++) weekDays.push(addDays(monday, i));
 
+    const isInWeek = (s: { start: Date; end: Date }) =>
+      weekDays.some(
+        (d) =>
+          isSameDay(s.start, d) ||
+          isSameDay(s.end, d) ||
+          (s.start <= d && s.end >= addDays(d, 1))
+      );
+
     const filtered = slots
       .map((s) => ({ start: new Date(s.start), end: new Date(s.end) }))
-      .filter((s) => {
-        return weekDays.some(
-          (d) =>
-            isSameDay(s.start, d) ||
-            isSameDay(s.end, d) ||
-            (s.start <= d && s.end >= addDays(d, 1))
-        );
-      });
+      .filter(isInWeek);
+
+    const filteredLevels = hasLevels
+      ? levelSlots
+          .map((s) => ({
+            ...s,
+            startDate: new Date(s.start),
+            endDate: new Date(s.end),
+          }))
+          .filter((s) => isInWeek({ start: s.startDate, end: s.endDate }))
+      : [];
+
+    const allSlotDates = hasLevels
+      ? filteredLevels.map((s) => ({ start: s.startDate, end: s.endDate }))
+      : filtered;
 
     let minH = 8;
     let maxH = 20;
-    for (const s of filtered) {
+    for (const s of allSlotDates) {
       minH = Math.min(minH, s.start.getHours());
       maxH = Math.max(maxH, s.end.getHours() + (s.end.getMinutes() > 0 ? 1 : 0));
     }
@@ -103,8 +130,9 @@ export function WeekCalendar({ slots, label }: WeekCalendarProps) {
       hourStart: minH,
       hourEnd: maxH,
       weekSlots: filtered,
+      weekLevelSlots: filteredLevels,
     };
-  }, [monday, slots]);
+  }, [monday, slots, levelSlots, hasLevels]);
 
   const totalHours = hourEnd - hourStart;
   const gridHeight = totalHours * HOUR_HEIGHT;
@@ -200,100 +228,220 @@ export function WeekCalendar({ slots, label }: WeekCalendarProps) {
       </p>
 
       {/* Calendar grid */}
-      <div className="week-cal-grid border border-border/60 rounded-lg overflow-hidden bg-white/50">
-        {/* Day headers */}
-        <div className="week-cal-header">
-          <div className="week-cal-time-col" />
-          {Array.from({ length: 7 }, (_, i) => {
-            const d = addDays(monday, i);
-            const isToday = isSameDay(d, today);
-            return (
-              <div
-                key={i}
-                className={`week-cal-day-header ${isToday ? "week-cal-today-header" : ""}`}
-              >
-                <span className="text-[10px] font-medium">{DAY_NAMES[i]}</span>
-                <span
-                  className={`text-[11px] font-semibold tabular-nums ${isToday ? "week-cal-today-num" : ""}`}
-                >
-                  {d.getDate()}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Time grid */}
-        <div className="week-cal-body" style={{ height: gridHeight }}>
-          {/* Time labels */}
-          <div className="week-cal-time-col">
-            {Array.from({ length: totalHours }, (_, i) => {
-              const h = hourStart + i;
-              const ampm = h >= 12 ? "PM" : "AM";
-              const hour = h % 12 || 12;
+      <div className="week-cal-scroll-wrapper rounded-lg border border-border/60">
+        <div className="week-cal-grid overflow-hidden bg-white/50">
+          {/* Day headers */}
+          <div className="week-cal-header">
+            <div className="week-cal-time-col" />
+            {Array.from({ length: 7 }, (_, i) => {
+              const d = addDays(monday, i);
+              const isToday = isSameDay(d, today);
               return (
                 <div
-                  key={h}
-                  className="week-cal-time-label"
-                  style={{ height: HOUR_HEIGHT }}
+                  key={i}
+                  className={`week-cal-day-header ${isToday ? "week-cal-today-header" : ""}`}
                 >
-                  <span className="text-[9px] text-muted tabular-nums">
-                    {hour} {ampm}
+                  <span className="text-[10px] font-medium">{DAY_NAMES[i]}</span>
+                  <span
+                    className={`text-[11px] font-semibold tabular-nums ${isToday ? "week-cal-today-num" : ""}`}
+                  >
+                    {d.getDate()}
                   </span>
                 </div>
               );
             })}
           </div>
 
-          {/* Day columns */}
-          {Array.from({ length: 7 }, (_, dayIdx) => {
-            const dayDate = addDays(monday, dayIdx);
-            const isToday = isSameDay(dayDate, today);
-            return (
-              <div
-                key={dayIdx}
-                className={`week-cal-day-col ${isToday ? "week-cal-today-col" : ""}`}
-              >
-                {/* Hour lines */}
-                {Array.from({ length: totalHours }, (_, hi) => (
+          {/* Time grid */}
+          <div className="week-cal-body" style={{ height: gridHeight }}>
+            {/* Time labels */}
+            <div className="week-cal-time-col">
+              {Array.from({ length: totalHours }, (_, i) => {
+                const h = hourStart + i;
+                const ampm = h >= 12 ? "PM" : "AM";
+                const hour = h % 12 || 12;
+                return (
                   <div
-                    key={hi}
-                    className="week-cal-hour-line"
-                    style={{ top: hi * HOUR_HEIGHT }}
-                  />
-                ))}
+                    key={h}
+                    className="week-cal-time-label"
+                    style={{ height: HOUR_HEIGHT }}
+                  >
+                    <span className="text-[9px] text-muted tabular-nums">
+                      {hour} {ampm}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
-                {/* Slot blocks */}
-                {weekSlots.map((slot, si) => {
-                  const style = slotStyle(slot, dayDate);
-                  if (!style) return null;
-                  return (
-                    <motion.div
-                      key={`${dayIdx}-${si}`}
-                      className="week-cal-slot"
-                      style={style}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{
-                        type: "spring",
-                        duration: 0.3,
-                        bounce: 0,
-                        delay: si * 0.02,
-                      }}
+            {/* Day columns */}
+            {Array.from({ length: 7 }, (_, dayIdx) => {
+              const dayDate = addDays(monday, dayIdx);
+              const isToday = isSameDay(dayDate, today);
+              return (
+                <div
+                  key={dayIdx}
+                  className={`week-cal-day-col ${isToday ? "week-cal-today-col" : ""}`}
+                >
+                  {/* Hour lines */}
+                  {Array.from({ length: totalHours }, (_, hi) => (
+                    <div
+                      key={hi}
+                      className="week-cal-hour-line"
+                      style={{ top: hi * HOUR_HEIGHT }}
                     />
-                  );
-                })}
-              </div>
-            );
-          })}
+                  ))}
+
+                  {/* Slot blocks */}
+                  {hasLevels
+                    ? weekLevelSlots.map((slot, si) => {
+                        const style = slotStyle(
+                          { start: slot.startDate, end: slot.endDate },
+                          dayDate
+                        );
+                        if (!style) return null;
+                        return (
+                          <CalendarLevelSlot
+                            key={`${dayIdx}-${si}`}
+                            slot={slot}
+                            style={style}
+                            delay={si * 0.02}
+                          />
+                        );
+                      })
+                    : weekSlots.map((slot, si) => {
+                        const style = slotStyle(slot, dayDate);
+                        if (!style) return null;
+                        return (
+                          <motion.div
+                            key={`${dayIdx}-${si}`}
+                            className="week-cal-slot"
+                            style={style}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{
+                              type: "spring",
+                              duration: 0.3,
+                              bounce: 0,
+                              delay: si * 0.02,
+                            }}
+                          />
+                        );
+                      })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {weekSlots.length === 0 && (
+      {weekSlots.length === 0 && weekLevelSlots.length === 0 && (
         <p className="text-[11px] text-muted text-center mt-3">
           No slots this week.
         </p>
       )}
     </div>
+  );
+}
+
+function slotLevelGradient(count: number, total: number): string {
+  const ratio = count / total;
+  if (ratio >= 1) return "linear-gradient(180deg, #34d399 0%, #10b981 100%)";
+  if (ratio >= 0.75) return "linear-gradient(180deg, #6CB4F8 0%, #1A82F7 100%)";
+  if (ratio >= 0.5) return "linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%)";
+  if (ratio >= 0.25) return "linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%)";
+  return "linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)";
+}
+
+interface CalendarLevelSlotProps {
+  slot: LevelSlot & { startDate: Date; endDate: Date };
+  style: React.CSSProperties;
+  delay: number;
+}
+
+function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
+  const [hovered, setHovered] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const [tipPos, setTipPos] = useState({ top: 0, left: 0, above: false });
+
+  useEffect(() => {
+    if (!hovered || !ref.current) return;
+
+    function update() {
+      const rect = ref.current!.getBoundingClientRect();
+      const above = rect.top > 200;
+      setTipPos({
+        top: above ? rect.top - 6 : rect.bottom + 6,
+        left: Math.max(100, Math.min(rect.left + rect.width / 2, window.innerWidth - 100)),
+        above,
+      });
+    }
+
+    update();
+    window.addEventListener("scroll", update, true);
+    return () => window.removeEventListener("scroll", update, true);
+  }, [hovered]);
+
+  const tooltip = (
+    <AnimatePresence>
+      {hovered && (
+        <motion.div
+          initial={{ opacity: 0, y: tipPos.above ? 4 : -4, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: tipPos.above ? 4 : -4, scale: 0.96 }}
+          transition={{ type: "spring", duration: 0.2, bounce: 0 }}
+          className="fixed z-[9999] aqua-panel px-3 py-2.5 text-left w-44"
+          style={{
+            top: tipPos.top,
+            left: tipPos.left,
+            transform: `translate(-50%, ${tipPos.above ? "-100%" : "0%"})`,
+            transformOrigin: tipPos.above ? "bottom center" : "top center",
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        >
+          <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
+            {slot.count} of {slot.total} free
+          </p>
+          <div className="space-y-1">
+            {slot.available.map((name) => (
+              <div key={name} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-[11px] text-foreground truncate">{name}</span>
+              </div>
+            ))}
+            {slot.unavailable.map((name) => (
+              <div key={name} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                <span className="text-[11px] text-muted truncate">{name}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  return (
+    <>
+      <motion.div
+        ref={ref}
+        className="week-cal-slot"
+        style={{
+          ...style,
+          background: slotLevelGradient(slot.count, slot.total),
+          opacity: Math.max(0.4, slot.count / slot.total),
+          cursor: "default",
+        }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
+        whileHover={{ opacity: 1, scale: 1.04 }}
+        transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={() => setHovered((h) => !h)}
+      />
+      {typeof document !== "undefined" && createPortal(tooltip, document.body)}
+    </>
   );
 }

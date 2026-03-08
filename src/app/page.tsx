@@ -68,7 +68,7 @@ export default function Home() {
             <motion.button
               onClick={handleCreate}
               disabled={creating}
-              className="aqua-btn relative inline-flex items-center justify-center h-[34px] px-6 text-[14px]"
+              className="aqua-btn relative inline-flex items-center justify-center h-[42px] sm:h-[34px] px-8 sm:px-6 text-[15px] sm:text-[14px]"
               whileHover={{ scale: 1.02, filter: "brightness(1.06)" }}
               whileTap={{ scale: 0.97, filter: "brightness(0.94)" }}
               transition={{ type: "spring", duration: 0.2, bounce: 0 }}
