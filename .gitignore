@@ -33,6 +33,13 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# database
+local.db
+*.db
+
+# drizzle
+/drizzle
+
 # vercel
 .vercel
 

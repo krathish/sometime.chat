@@ -1,17 +1,26 @@
 {
-  "name": "freetime-temp",
+  "name": "freetime",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "drizzle-orm": "^0.45.1",
+    "framer-motion": "^12.35.1",
+    "nanoid": "^5.1.6",
     "next": "16.1.6",
+    "puppeteer": "^24.38.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
