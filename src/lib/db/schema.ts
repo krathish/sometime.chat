@@ -17,6 +17,7 @@ export const links = sqliteTable("links", {
   personName: text("person_name").notNull(),
   platform: text("platform").notNull().default("unknown"),
   availabilityJson: text("availability_json"),
+  parseError: text("parse_error"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

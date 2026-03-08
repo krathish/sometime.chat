@@ -27,6 +27,7 @@ export async function GET(
     links: sessionLinks.map((l) => ({
       ...l,
       availability: l.availabilityJson ? JSON.parse(l.availabilityJson) : null,
+      error: l.parseError || null,
     })),
   });
 }

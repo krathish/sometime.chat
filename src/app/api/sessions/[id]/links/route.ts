@@ -42,6 +42,7 @@ export async function POST(
     platform,
     availabilityJson:
       result.slots.length > 0 ? JSON.stringify(result.slots) : null,
+    parseError: result.error || null,
   });
 
   return NextResponse.json(

@@ -13,6 +13,7 @@ interface LinkData {
   personName: string;
   platform: string;
   availability: { start: string; end: string }[] | null;
+  error: string | null;
 }
 
 interface SessionData {
@@ -49,8 +50,10 @@ export default function SessionPage({
   const [adding, setAdding] = useState(false);
   const [results, setResults] = useState<CommonResult | null>(null);
   const [finding, setFinding] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const playClick = useSound("/sounds/click.mp3", 0.4);
   const playNotify = useSound("/sounds/notify.mp3", 0.5);
+  const playError = useSound("/sounds/error.mp3", 0.45);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -86,15 +89,18 @@ export default function SessionPage({
       const data = await res.json();
 
       if (!res.ok) {
+        playError();
         toast.error(data.error || "Failed to add link");
         return;
       }
 
       if (data.error) {
+        playError();
         toast.warning(data.error);
       } else if (data.slotsFound > 0) {
         toast.success(`Found ${data.slotsFound} available slots`);
       } else {
+        playError();
         toast("Link added, but no available slots were detected");
       }
 
@@ -102,6 +108,7 @@ export default function SessionPage({
       setName("");
       await fetchSession();
     } catch {
+      playError();
       toast.error("Something went wrong");
     } finally {
       setAdding(false);
@@ -116,7 +123,37 @@ export default function SessionPage({
       await fetchSession();
       setResults(null);
     } catch {
+      playError();
       toast.error("Failed to remove link");
+    }
+  }
+
+  async function handleRetry(linkId: string) {
+    if (retrying) return;
+    playClick();
+    setRetrying(linkId);
+    try {
+      const res = await fetch(`/api/sessions/${id}/links/${linkId}`, {
+        method: "PATCH",
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        playError();
+        toast.warning(data.error);
+      } else if (data.slotsFound > 0) {
+        toast.success(`Found ${data.slotsFound} available slots`);
+      } else {
+        playError();
+        toast("Retry complete, but no slots found");
+      }
+
+      await fetchSession();
+    } catch {
+      playError();
+      toast.error("Retry failed");
+    } finally {
+      setRetrying(null);
     }
   }
 
@@ -139,9 +176,11 @@ export default function SessionPage({
       if (slotCount > 0) {
         playNotify();
       } else {
+        playError();
         toast("No common times found");
       }
     } catch {
+      playError();
       toast.error("Failed to compute common times");
     } finally {
       setFinding(false);
@@ -168,7 +207,10 @@ export default function SessionPage({
   if (!session) {
     return (
       <main className="min-h-screen flex items-center justify-center px-6">
-        <motion.div {...enterAnim} className="aqua-panel px-8 py-10 text-center max-w-sm">
+        <motion.div
+          {...enterAnim}
+          className="aqua-panel px-8 py-10 text-center max-w-sm"
+        >
           <h1 className="text-xl font-semibold">Session Not Found</h1>
           <p className="mt-2 text-sm text-muted">
             This session may have expired or doesn&apos;t exist.
@@ -334,7 +376,11 @@ export default function SessionPage({
                               filter: "blur(4px)",
                             }}
                             transition={{ ...spring, delay: i * 0.03 }}
-                            className="group flex items-center gap-3 rounded-lg border border-border bg-white/60 px-3 py-2"
+                            className={`group flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                              link.error && !link.availability
+                                ? "border-danger/40 bg-red-50/60"
+                                : "border-border bg-white/60"
+                            }`}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
@@ -343,7 +389,7 @@ export default function SessionPage({
                                 </span>
                                 <PlatformBadge platform={link.platform} />
                                 {link.availability && (
-                                  <span className="text-[11px] text-muted font-variant-numeric tabular-nums">
+                                  <span className="text-[11px] text-muted tabular-nums">
                                     {link.availability.length} slots
                                   </span>
                                 )}
@@ -352,6 +398,16 @@ export default function SessionPage({
                                 {link.url}
                               </p>
                             </div>
+
+                            {/* Error indicator with hover tooltip */}
+                            {link.error && !link.availability && (
+                              <ErrorBadge
+                                error={link.error}
+                                onRetry={() => handleRetry(link.id)}
+                                isRetrying={retrying === link.id}
+                              />
+                            )}
+
                             <motion.button
                               onClick={() => handleRemoveLink(link.id)}
                               className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 p-1.5 rounded-md hover:bg-danger/10 text-muted hover:text-danger cursor-pointer"
@@ -432,7 +488,6 @@ export default function SessionPage({
                 transition={{ ...spring, delay: 0.05 }}
                 className="mt-4 aqua-panel overflow-hidden"
               >
-                {/* Results title bar */}
                 <div className="flex items-center px-4 py-2 border-b border-border/60 bg-gradient-to-b from-[#f6f6f6] to-[#dfdfdf]">
                   <span className="flex-1 text-center text-xs font-medium text-muted select-none">
                     Common Availability
@@ -502,8 +557,10 @@ export default function SessionPage({
                                       dateIdx * 0.05 +
                                       slotIdx * 0.02,
                                   }}
-                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-accent-light text-accent text-[11px] font-medium border border-accent/15 tabular-nums"
-                                  style={{ fontVariantNumeric: "tabular-nums" }}
+                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-accent-light text-accent text-[11px] font-medium border border-accent/15"
+                                  style={{
+                                    fontVariantNumeric: "tabular-nums",
+                                  }}
                                 >
                                   {formatTime(slot.start)} &ndash;{" "}
                                   {formatTime(slot.end)}
@@ -522,6 +579,89 @@ export default function SessionPage({
         </LayoutGroup>
       </div>
     </main>
+  );
+}
+
+/* ── Error Badge with hover popover ── */
+
+function ErrorBadge({
+  error,
+  onRetry,
+  isRetrying,
+}: {
+  error: string;
+  onRetry: () => void;
+  isRetrying: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className="flex items-center justify-center w-6 h-6 rounded-full bg-danger/10 text-danger cursor-pointer hover:bg-danger/20 transition-colors duration-150"
+        aria-label="View parsing error"
+        tabIndex={0}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.96, filter: "blur(3px)" }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: 4, scale: 0.96, filter: "blur(3px)" }}
+            transition={{ type: "spring", duration: 0.25, bounce: 0 }}
+            className="absolute right-0 top-full mt-1.5 z-50 w-64 aqua-panel p-3 text-left"
+            style={{ transformOrigin: "top right" }}
+          >
+            <p className="text-[11px] font-semibold text-danger mb-1">
+              Parsing Error
+            </p>
+            <p className="text-[11px] text-foreground/80 leading-relaxed break-words">
+              {error}
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry();
+                }}
+                disabled={isRetrying}
+                className="aqua-btn h-[24px] px-3 text-[11px] disabled:opacity-50"
+              >
+                {isRetrying ? "Retrying\u2026" : "Retry"}
+              </button>
+              <p className="text-[10px] text-muted/70 leading-tight self-center">
+                Re-fetch availability from this link
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
