@@ -229,7 +229,7 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
 
       {/* Calendar grid */}
       <div className="week-cal-scroll-wrapper rounded-lg border border-border/60">
-        <div className="week-cal-grid overflow-hidden bg-white/50">
+        <div className="week-cal-grid bg-white/50">
           {/* Day headers */}
           <div className="week-cal-header">
             <div className="week-cal-time-col" />

@@ -248,8 +248,8 @@ export function InteractiveCalendar({
         {formatMonthRange(monday)}
       </p>
 
-      <div className="week-cal-scroll-wrapper rounded-lg border border-border/60">
-        <div className="week-cal-grid overflow-hidden bg-white/50">
+      <div className="week-cal-scroll-wrapper rounded-lg border border-border/60 max-h-[320px] overflow-y-auto">
+        <div className="week-cal-grid bg-white/50">
           <div className="week-cal-header">
             <div className="week-cal-time-col" />
             {Array.from({ length: 7 }, (_, i) => {

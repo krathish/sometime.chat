@@ -128,13 +128,17 @@ export default function SessionPage({
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [nameRequired, setNameRequired] = useState(false);
   const [results, setResults] = useState<CommonResult | null>(null);
   const [finding, setFinding] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>("link");
   const [pendingSlots, setPendingSlots] = useState<PendingSlot[]>([]);
-  const [slotDate, setSlotDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [slotDate, setSlotDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [slotStartTime, setSlotStartTime] = useState("");
   const [slotEndTime, setSlotEndTime] = useState("");
   const [resultsView, setResultsView] = useState<ViewMode>("list");
@@ -144,6 +148,7 @@ export default function SessionPage({
   const playNotify = useSound("/sounds/notify.mp3", 0.5);
   const playError = useSound("/sounds/error.mp3", 0.45);
   const gcalHandled = useRef(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -318,7 +323,12 @@ export default function SessionPage({
   }
 
   async function handleSaveManualSlots() {
-    if (!name.trim() || pendingSlots.length === 0 || adding) return;
+    if (pendingSlots.length === 0 || adding) return;
+    if (!name.trim()) {
+      setNameRequired(true);
+      playError();
+      return;
+    }
     playClick();
     setAdding(true);
 
@@ -345,7 +355,8 @@ export default function SessionPage({
       toast.success(`Added ${data.slotsFound} manual slots`);
       setName("");
       setPendingSlots([]);
-      setSlotDate("");
+      const now = new Date();
+      setSlotDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
       setSlotStartTime("");
       setSlotEndTime("");
       await fetchSession();
@@ -474,7 +485,30 @@ export default function SessionPage({
     );
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const tomorrowDate = new Date(now);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowStr = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getDate()).padStart(2, "0")}`;
+
+  function formatDateLabel(dateStr: string) {
+    if (!dateStr) return "";
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    const day = date.getDate();
+    const suffix = [11, 12, 13].includes(day % 100)
+      ? "th"
+      : ["th", "st", "nd", "rd"][day % 10] || "th";
+    const month = date.toLocaleDateString("en-US", { month: "long" });
+    const currentYear = new Date().getFullYear();
+    return `${day}${suffix} ${month}${y !== currentYear ? ` ${y}` : ""}`;
+  }
+
+  function getDateTag(dateStr: string) {
+    if (dateStr === todayStr) return "Today";
+    if (dateStr === tomorrowStr) return "Tomorrow";
+    return null;
+  }
 
   return (
     <main className="min-h-screen py-6 sm:py-10 px-4 sm:px-6">
@@ -497,14 +531,14 @@ export default function SessionPage({
             transition={{ ...spring, delay: 0.03 }}
           >
             {/* Title bar */}
-            <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/60 bg-gradient-to-b from-[#f6f6f6] to-[#dfdfdf]">
-              <span className="w-3 h-3 rounded-full bg-[#ff5f57] border border-[#e2463f]" />
-              <span className="w-3 h-3 rounded-full bg-[#febc2e] border border-[#e09e1a]" />
-              <span className="w-3 h-3 rounded-full bg-[#28c840] border border-[#1aab29]" />
-              <span className="flex-1 text-center text-xs font-medium text-muted select-none">
+            <div className="aqua-title-bar">
+              <span className="aqua-traffic-light aqua-traffic-close" />
+              <span className="aqua-traffic-light aqua-traffic-minimize" />
+              <span className="aqua-traffic-light aqua-traffic-zoom" />
+              <span className="flex-1 text-center text-[11px] font-semibold text-muted select-none">
                 Session
               </span>
-              <span className="w-[54px]" />
+              <span className="w-[48px]" />
             </div>
 
             <div className="p-5 space-y-5">
@@ -658,14 +692,39 @@ export default function SessionPage({
                           onSubmit={handleAddPendingSlot}
                           className="flex flex-col gap-2"
                         >
-                          <input
-                            type="date"
-                            value={slotDate}
-                            onChange={(e) => setSlotDate(e.target.value)}
-                            min={todayStr}
-                            className="aqua-input text-[13px] w-full sm:flex-1"
-                            required
-                          />
+                          <div
+                            className="relative cursor-pointer"
+                            onClick={() => dateInputRef.current?.showPicker?.()}
+                          >
+                            <div className="aqua-input text-[13px] h-[32px] sm:h-[30px] flex items-center justify-between pointer-events-none">
+                              <span className="flex items-center gap-1.5">
+                                <span className={slotDate ? "text-foreground" : "text-[#999]"}>
+                                  {slotDate ? formatDateLabel(slotDate) : "Select date\u2026"}
+                                </span>
+                                {slotDate && getDateTag(slotDate) && (
+                                  <span className="text-[10px] font-medium text-accent bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5 leading-none">
+                                    {getDateTag(slotDate)}
+                                  </span>
+                                )}
+                              </span>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted flex-shrink-0">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                              </svg>
+                            </div>
+                            <input
+                              ref={dateInputRef}
+                              type="date"
+                              value={slotDate}
+                              onChange={(e) => setSlotDate(e.target.value)}
+                              min={todayStr}
+                              className="absolute inset-0 opacity-0 pointer-events-none w-full h-full"
+                              required
+                              tabIndex={-1}
+                            />
+                          </div>
 
                           <AnimatePresence>
                             {slotDate && (
@@ -681,7 +740,7 @@ export default function SessionPage({
                                     <button
                                       key={preset.label}
                                       type="button"
-                                      className="text-[11px] px-2.5 py-1 rounded-full border border-border bg-white/60 text-muted hover:bg-white hover:text-foreground hover:border-foreground/20 transition-colors cursor-pointer"
+                                      className="flex-1 sm:flex-initial text-[11px] px-2.5 py-1 rounded-full border border-border bg-white/60 text-muted hover:bg-white hover:text-foreground hover:border-foreground/20 transition-colors cursor-pointer"
                                       onClick={() => {
                                         setSlotStartTime(preset.start);
                                         setSlotEndTime(preset.end);
@@ -837,7 +896,7 @@ export default function SessionPage({
                           <motion.button
                             type="button"
                             onClick={handleSaveManualSlots}
-                            disabled={adding || !name.trim()}
+                            disabled={adding}
                             className="aqua-btn h-[32px] sm:h-[30px] text-[13px] w-full mt-1"
                             whileHover={{
                               scale: 1.01,
@@ -883,8 +942,11 @@ export default function SessionPage({
                           name="personName"
                           placeholder="Your name&hellip;"
                           value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className="aqua-input w-full sm:w-48"
+                          onChange={(e) => {
+                            setName(e.target.value);
+                            if (nameRequired) setNameRequired(false);
+                          }}
+                          className={`aqua-input w-full sm:w-48 ${nameRequired ? "!border-danger ring-2 ring-danger/30" : ""}`}
                           autoComplete="off"
                           spellCheck={false}
                         />
@@ -915,7 +977,7 @@ export default function SessionPage({
                           <motion.button
                             type="button"
                             onClick={handleSaveManualSlots}
-                            disabled={adding || !name.trim()}
+                            disabled={adding}
                             className="aqua-btn h-[32px] sm:h-[30px] text-[13px] w-full mt-1"
                             whileHover={{
                               scale: 1.01,
@@ -1218,15 +1280,17 @@ export default function SessionPage({
                                         }}
                                       />
                                     </div>
-                                    {participantView === "list" ? (
-                                      <SlotList
-                                        slots={link.availability}
-                                      />
-                                    ) : (
-                                      <WeekCalendar
-                                        slots={link.availability}
-                                      />
-                                    )}
+                                    <div className="max-h-[280px] overflow-y-auto">
+                                      {participantView === "list" ? (
+                                        <SlotList
+                                          slots={link.availability}
+                                        />
+                                      ) : (
+                                        <WeekCalendar
+                                          slots={link.availability}
+                                        />
+                                      )}
+                                    </div>
                                   </div>
                                 </motion.div>
                               )}
@@ -1290,8 +1354,8 @@ export default function SessionPage({
                 transition={{ ...spring, delay: 0.05 }}
                 className="mt-4 aqua-panel overflow-hidden"
               >
-                <div className="flex items-center px-4 py-2 border-b border-border/60 bg-gradient-to-b from-[#f6f6f6] to-[#dfdfdf]">
-                  <span className="flex-1 text-center text-xs font-medium text-muted select-none">
+                <div className="aqua-title-bar">
+                  <span className="flex-1 text-center text-[11px] font-semibold text-muted select-none">
                     Common Availability
                   </span>
                   <ViewToggle
