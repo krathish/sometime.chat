@@ -33,7 +33,7 @@ export function PlatformBadge({ platform }: { platform: string }) {
   return (
     <motion.span
       className={`inline-flex items-center px-1.5 py-px rounded text-[10px] font-semibold border ${platformColors[platform] || platformColors.unknown}`}
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", duration: 0.25, bounce: 0 }}
     >

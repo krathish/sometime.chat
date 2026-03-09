@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface TimeSlot {
   start: string;
@@ -369,88 +373,42 @@ interface CalendarLevelSlotProps {
 }
 
 function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
-  const [hovered, setHovered] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const [tipPos, setTipPos] = useState({ top: 0, left: 0, above: false });
-
-  useEffect(() => {
-    if (!hovered || !ref.current) return;
-
-    function update() {
-      const rect = ref.current!.getBoundingClientRect();
-      const above = rect.top > 200;
-      setTipPos({
-        top: above ? rect.top - 6 : rect.bottom + 6,
-        left: Math.max(100, Math.min(rect.left + rect.width / 2, window.innerWidth - 100)),
-        above,
-      });
-    }
-
-    update();
-    window.addEventListener("scroll", update, true);
-    return () => window.removeEventListener("scroll", update, true);
-  }, [hovered]);
-
-  const tooltip = (
-    <AnimatePresence>
-      {hovered && (
-        <motion.div
-          initial={{ opacity: 0, y: tipPos.above ? 4 : -4, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: tipPos.above ? 4 : -4, scale: 0.96 }}
-          transition={{ type: "spring", duration: 0.2, bounce: 0 }}
-          className="fixed z-[9999] aqua-panel px-3 py-2.5 text-left w-44"
-          style={{
-            top: tipPos.top,
-            left: tipPos.left,
-            transform: `translate(-50%, ${tipPos.above ? "-100%" : "0%"})`,
-            transformOrigin: tipPos.above ? "bottom center" : "top center",
-          }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-        >
-          <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
-            {slot.count} of {slot.total} free
-          </p>
-          <div className="space-y-1">
-            {slot.available.map((name) => (
-              <div key={name} className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                <span className="text-[11px] text-foreground truncate">{name}</span>
-              </div>
-            ))}
-            {slot.unavailable.map((name) => (
-              <div key={name} className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                <span className="text-[11px] text-muted truncate">{name}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
   return (
-    <>
-      <motion.div
-        ref={ref}
-        className="week-cal-slot"
-        style={{
-          ...style,
-          background: slotLevelGradient(slot.count, slot.total),
-          opacity: Math.max(0.4, slot.count / slot.total),
-          cursor: "default",
-        }}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
-        whileHover={{ opacity: 1, scale: 1.04 }}
-        transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onClick={() => setHovered((h) => !h)}
-      />
-      {typeof document !== "undefined" && createPortal(tooltip, document.body)}
-    </>
+    <Popover openOnHover delay={200} closeDelay={100}>
+      <PopoverTrigger asChild>
+        <motion.div
+          className="week-cal-slot"
+          style={{
+            ...style,
+            background: slotLevelGradient(slot.count, slot.total),
+            opacity: Math.max(0.4, slot.count / slot.total),
+            cursor: "default",
+          }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
+          whileHover={{ opacity: 1, scale: 1.04 }}
+          transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-44 px-3 py-2.5 text-left aqua-panel" sideOffset={6}>
+        <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
+          {slot.count} of {slot.total} free
+        </p>
+        <div className="space-y-1">
+          {slot.available.map((name) => (
+            <div key={name} className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-[11px] text-foreground truncate">{name}</span>
+            </div>
+          ))}
+          {slot.unavailable.map((name) => (
+            <div key={name} className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+              <span className="text-[11px] text-muted truncate">{name}</span>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

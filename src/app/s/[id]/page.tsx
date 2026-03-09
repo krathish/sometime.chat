@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { createPortal } from "react-dom";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
@@ -10,6 +9,24 @@ import { PlatformBadge } from "@/components/platform-badge";
 import { WeekCalendar } from "@/components/week-calendar";
 import { InteractiveCalendar } from "@/components/interactive-calendar";
 import { useSound } from "@/lib/use-sound";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface LinkData {
   id: string;
@@ -86,10 +103,11 @@ type InputMode = "link" | "manual" | "calendar" | "google";
 type ViewMode = "list" | "calendar";
 
 const spring = { type: "spring" as const, duration: 0.35, bounce: 0 };
+const exitSpring = { type: "spring" as const, duration: 0.28, bounce: 0 };
 const enterAnim = {
   initial: { opacity: 0, y: 8, filter: "blur(4px)" },
   animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-  exit: { opacity: 0, y: -4, filter: "blur(4px)" },
+  exit: { opacity: 0, y: -4, filter: "blur(4px)", transition: exitSpring },
   transition: spring,
 };
 
@@ -150,7 +168,6 @@ export default function SessionPage({
   const playError = useSound("/sounds/error.mp3", 0.45);
   const playTab = useSound("/sounds/tab.mp3", 0.4);
   const gcalHandled = useRef(false);
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -700,11 +717,8 @@ export default function SessionPage({
                           onSubmit={handleAddPendingSlot}
                           className="flex flex-col gap-2"
                         >
-                          <div
-                            className="relative cursor-pointer"
-                            onClick={() => dateInputRef.current?.showPicker?.()}
-                          >
-                            <div className="aqua-input text-[13px] h-[32px] sm:h-[30px] flex items-center justify-between pointer-events-none">
+                          <Popover>
+                            <PopoverTrigger className="aqua-input text-[13px] h-[32px] sm:h-[30px] flex items-center justify-between w-full cursor-pointer">
                               <span className="flex items-center gap-1.5">
                                 <span className={slotDate ? "text-foreground" : "text-[#999]"}>
                                   {slotDate ? formatDateLabel(slotDate) : "Select date\u2026"}
@@ -721,18 +735,23 @@ export default function SessionPage({
                                 <line x1="8" y1="2" x2="8" y2="6" />
                                 <line x1="3" y1="10" x2="21" y2="10" />
                               </svg>
-                            </div>
-                            <input
-                              ref={dateInputRef}
-                              type="date"
-                              value={slotDate}
-                              onChange={(e) => setSlotDate(e.target.value)}
-                              min={todayStr}
-                              className="absolute inset-0 opacity-0 pointer-events-none w-full h-full"
-                              required
-                              tabIndex={-1}
-                            />
-                          </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={slotDate ? new Date(slotDate + "T00:00:00") : undefined}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    const y = date.getFullYear();
+                                    const m = String(date.getMonth() + 1).padStart(2, "0");
+                                    const d = String(date.getDate()).padStart(2, "0");
+                                    setSlotDate(`${y}-${m}-${d}`);
+                                  }
+                                }}
+                                disabled={(date) => date < new Date(todayStr + "T00:00:00")}
+                              />
+                            </PopoverContent>
+                          </Popover>
 
                           <AnimatePresence>
                             {slotDate && (
@@ -760,10 +779,9 @@ export default function SessionPage({
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                  <select
+                                  <Select
                                     value={slotStartTime}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
+                                    onValueChange={(val) => {
                                       setSlotStartTime(val);
                                       if (!slotEndTime || slotEndTime <= val) {
                                         const [h, m] = val.split(":").map(Number);
@@ -773,40 +791,40 @@ export default function SessionPage({
                                         );
                                       }
                                     }}
-                                    className="aqua-input text-[13px] flex-1 min-w-0"
-                                    required
                                   >
-                                    <option value="" disabled>
-                                      Start time
-                                    </option>
-                                    {TIME_OPTIONS.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    <SelectTrigger className="flex-1 min-w-0 text-[13px] h-[30px] bg-white border-border shadow-[inset_0_2px_4px_rgba(0,0,0,0.12),inset_0_0_0_0.5px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.7)] rounded-[5px]">
+                                      <SelectValue placeholder="Start time" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {TIME_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                          {opt.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                   <span className="flex items-center text-[11px] text-muted shrink-0">
                                     to
                                   </span>
-                                  <select
+                                  <Select
                                     value={slotEndTime}
-                                    onChange={(e) => setSlotEndTime(e.target.value)}
-                                    className={`aqua-input text-[13px] flex-1 min-w-0 ${
+                                    onValueChange={(val) => setSlotEndTime(val)}
+                                  >
+                                    <SelectTrigger className={`flex-1 min-w-0 text-[13px] h-[30px] bg-white border-border shadow-[inset_0_2px_4px_rgba(0,0,0,0.12),inset_0_0_0_0.5px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.7)] rounded-[5px] ${
                                       slotStartTime && slotEndTime && slotEndTime <= slotStartTime
                                         ? "!border-red-400"
                                         : ""
-                                    }`}
-                                    required
-                                  >
-                                    <option value="" disabled>
-                                      End time
-                                    </option>
-                                    {TIME_OPTIONS.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    }`}>
+                                      <SelectValue placeholder="End time" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {TIME_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                          {opt.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
 
                                 <AnimatePresence>
@@ -888,7 +906,7 @@ export default function SessionPage({
                                 type="button"
                                 onClick={() => removePendingSlot(slot.id)}
                                 className="p-1 rounded hover:bg-danger/10 text-muted hover:text-danger cursor-pointer"
-                                whileTap={{ scale: 0.9 }}
+                                whileTap={{ scale: 0.95 }}
                                 aria-label="Remove slot"
                               >
                                 <svg
@@ -1254,7 +1272,7 @@ export default function SessionPage({
                                   }
                                   disabled={refreshing === link.id}
                                   className="p-1.5 rounded-md hover:bg-accent/10 text-muted hover:text-accent cursor-pointer transition-colors duration-150 disabled:opacity-50"
-                                  whileTap={{ scale: 0.9 }}
+                                  whileTap={{ scale: 0.95 }}
                                   aria-label="Refresh calendar"
                                   title="Refresh availability from Google Calendar"
                                 >
@@ -1284,7 +1302,7 @@ export default function SessionPage({
                               <motion.button
                                 onClick={() => handleRemoveLink(link.id)}
                                 className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 p-1.5 rounded-md hover:bg-danger/10 text-muted hover:text-danger cursor-pointer"
-                                whileTap={{ scale: 0.9 }}
+                                whileTap={{ scale: 0.95 }}
                                 aria-label={`Remove ${link.personName}`}
                               >
                                 <svg
@@ -1621,44 +1639,18 @@ interface ComfortInfo {
 function LevelSlotBadge({
   slot,
   comfort,
-  delay,
+  delay: animDelay,
 }: {
   slot: LevelSlot;
   comfort: ComfortInfo | null;
   delay: number;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const badgeRef = useRef<HTMLSpanElement>(null);
-  const [tooltipPos, setTooltipPos] = useState<{
-    top: number;
-    left: number;
-    above: boolean;
-  }>({ top: 0, left: 0, above: false });
-
   const colors = levelColor(slot.count, slot.total);
 
   const comfortBorder =
     comfort && comfort.overallScore < 0.5
       ? "ring-1 ring-amber-400/50"
       : "";
-
-  useEffect(() => {
-    if (!hovered || !badgeRef.current) return;
-
-    function update() {
-      const rect = badgeRef.current!.getBoundingClientRect();
-      const above = rect.top > 200;
-      setTooltipPos({
-        top: above ? rect.top - 6 : rect.bottom + 6,
-        left: Math.max(12, Math.min(rect.left + rect.width / 2, window.innerWidth - 12)),
-        above,
-      });
-    }
-
-    update();
-    window.addEventListener("scroll", update, true);
-    return () => window.removeEventListener("scroll", update, true);
-  }, [hovered]);
 
   const comfortDotColor = (label: string) => {
     if (label === "great") return "bg-emerald-500";
@@ -1667,117 +1659,93 @@ function LevelSlotBadge({
     return "bg-red-400";
   };
 
-  const tooltip = (
-    <AnimatePresence>
-      {hovered && (
-        <motion.div
-          initial={{ opacity: 0, y: tooltipPos.above ? 4 : -4, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: tooltipPos.above ? 4 : -4, scale: 0.96 }}
-          transition={{ type: "spring", duration: 0.2, bounce: 0 }}
-          className="fixed z-[9999] aqua-panel px-3 py-2.5 text-left w-56"
-          style={{
-            top: tooltipPos.top,
-            left: tooltipPos.left,
-            transform: `translate(-50%, ${tooltipPos.above ? "-100%" : "0%"})`,
-            transformOrigin: tooltipPos.above ? "bottom center" : "top center",
-          }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-        >
-          <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
-            {slot.count} of {slot.total} free
-          </p>
-          <div className="space-y-1">
-            {slot.available.map((personName) => {
-              const tzInfo = comfort?.perParticipant.find(
-                (p) => p.name === personName
-              );
-              return (
-                <div key={personName} className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-[11px] text-foreground truncate flex-1">
-                    {personName}
-                  </span>
-                  {tzInfo && (
-                    <span
-                      className={`text-[9px] px-1 py-px rounded ${comfortDotColor(tzInfo.label) === "bg-emerald-500" || comfortDotColor(tzInfo.label) === "bg-emerald-400" ? "text-emerald-700 bg-emerald-50" : comfortDotColor(tzInfo.label) === "bg-amber-400" ? "text-amber-700 bg-amber-50" : "text-red-700 bg-red-50"}`}
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      {tzInfo.localTime}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-            {slot.unavailable.map((personName) => {
-              const tzInfo = comfort?.perParticipant.find(
-                (p) => p.name === personName
-              );
-              return (
-                <div key={personName} className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                  <span className="text-[11px] text-muted truncate flex-1">
-                    {personName}
-                  </span>
-                  {tzInfo && (
-                    <span
-                      className="text-[9px] text-muted/70 px-1 py-px"
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      {tzInfo.localTime}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {comfort && comfort.overallScore < 0.7 && (
-            <p className="mt-2 text-[9px] text-amber-600 border-t border-border/30 pt-1.5">
-              {comfort.overallScore < 0.3
-                ? "Outside working hours for some participants"
-                : "Not ideal hours for all participants"}
-            </p>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
   return (
-    <>
-      <motion.span
-        ref={badgeRef}
-        initial={{ opacity: 0, scale: 0.95, filter: "blur(2px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        transition={{ ...spring, delay }}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border cursor-default select-none ${colors.bg} ${colors.text} ${colors.border} ${comfortBorder}`}
-        style={{ fontVariantNumeric: "tabular-nums" }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onClick={() => setHovered((h) => !h)}
-      >
-        <span
-          className="inline-block w-[6px] h-[6px] rounded-full shrink-0"
-          style={{
-            background:
-              slot.count === slot.total
-                ? "#16a34a"
-                : `rgba(26, 130, 247, ${Math.max(0.25, slot.count / slot.total)})`,
-          }}
-        />
-        {formatTime(slot.start)} &ndash; {formatTime(slot.end)}
-        <span className="text-[9px] opacity-70">
-          {slot.count}/{slot.total}
-        </span>
-        {comfort && comfort.overallScore < 0.5 && (
-          <span className="text-[9px] text-amber-600" title="Outside comfortable hours for some">
-            &#9679;
+    <Popover openOnHover delay={200} closeDelay={100}>
+      <PopoverTrigger asChild>
+        <motion.span
+          initial={{ opacity: 0, scale: 0.95, filter: "blur(2px)" }}
+          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          transition={{ ...spring, delay: animDelay }}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border cursor-default select-none ${colors.bg} ${colors.text} ${colors.border} ${comfortBorder}`}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          <span
+            className="inline-block w-[6px] h-[6px] rounded-full shrink-0"
+            style={{
+              background:
+                slot.count === slot.total
+                  ? "#16a34a"
+                  : `rgba(26, 130, 247, ${Math.max(0.25, slot.count / slot.total)})`,
+            }}
+          />
+          {formatTime(slot.start)} &ndash; {formatTime(slot.end)}
+          <span className="text-[9px] opacity-70">
+            {slot.count}/{slot.total}
           </span>
+          {comfort && comfort.overallScore < 0.5 && (
+            <span className="text-[9px] text-amber-600" title="Outside comfortable hours for some">
+              &#9679;
+            </span>
+          )}
+        </motion.span>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 px-3 py-2.5 text-left aqua-panel" sideOffset={6}>
+        <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
+          {slot.count} of {slot.total} free
+        </p>
+        <div className="space-y-1">
+          {slot.available.map((personName) => {
+            const tzInfo = comfort?.perParticipant.find(
+              (p) => p.name === personName
+            );
+            return (
+              <div key={personName} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-[11px] text-foreground truncate flex-1">
+                  {personName}
+                </span>
+                {tzInfo && (
+                  <span
+                    className={`text-[9px] px-1 py-px rounded ${comfortDotColor(tzInfo.label) === "bg-emerald-500" || comfortDotColor(tzInfo.label) === "bg-emerald-400" ? "text-emerald-700 bg-emerald-50" : comfortDotColor(tzInfo.label) === "bg-amber-400" ? "text-amber-700 bg-amber-50" : "text-red-700 bg-red-50"}`}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {tzInfo.localTime}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          {slot.unavailable.map((personName) => {
+            const tzInfo = comfort?.perParticipant.find(
+              (p) => p.name === personName
+            );
+            return (
+              <div key={personName} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                <span className="text-[11px] text-muted truncate flex-1">
+                  {personName}
+                </span>
+                {tzInfo && (
+                  <span
+                    className="text-[9px] text-muted/70 px-1 py-px"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {tzInfo.localTime}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {comfort && comfort.overallScore < 0.7 && (
+          <p className="mt-2 text-[9px] text-amber-600 border-t border-border/30 pt-1.5">
+            {comfort.overallScore < 0.3
+              ? "Outside working hours for some participants"
+              : "Not ideal hours for all participants"}
+          </p>
         )}
-      </motion.span>
-      {typeof document !== "undefined" && createPortal(tooltip, document.body)}
-    </>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -1851,7 +1819,7 @@ function ViewToggle({
   );
 }
 
-/* ── Error Badge with hover popover ── */
+/* ── Error Badge with popover ── */
 
 function ErrorBadge({
   error,
@@ -1862,114 +1830,60 @@ function ErrorBadge({
   onRetry: () => void;
   isRetrying: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0, right: 0, isMobile: false });
-
-  useEffect(() => {
-    if (!open || !triggerRef.current) return;
-
-    function update() {
-      const rect = triggerRef.current!.getBoundingClientRect();
-      const isMobile = window.innerWidth < 640;
-      setPos({
-        top: rect.bottom + 6,
-        left: isMobile ? 16 : 0,
-        right: isMobile ? 16 : window.innerWidth - rect.right,
-        isMobile,
-      });
-    }
-
-    update();
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [open]);
-
-  const popover = (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, y: 4, scale: 0.96, filter: "blur(3px)" }}
-          animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, y: 4, scale: 0.96, filter: "blur(3px)" }}
-          transition={{ type: "spring", duration: 0.25, bounce: 0 }}
-          className="fixed z-[9999] aqua-panel p-3 text-left"
-          style={{
-            top: pos.top,
-            ...(pos.isMobile
-              ? { left: pos.left, right: pos.right, width: "auto", transformOrigin: "top center" }
-              : { right: pos.right, width: 256, transformOrigin: "top right" }),
-          }}
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
-        >
-          <p className="text-[11px] font-semibold text-danger mb-1">
-            Parsing Error
-          </p>
-          <p className="text-[11px] text-foreground/80 leading-relaxed break-words">
-            {error}
-          </p>
-          <div className="mt-2.5 flex gap-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRetry();
-              }}
-              disabled={isRetrying}
-              className="aqua-btn h-[24px] px-3 text-[11px] disabled:opacity-50"
-            >
-              {isRetrying ? "Retrying\u2026" : "Retry"}
-            </button>
-            <p className="text-[10px] text-muted/70 leading-tight self-center">
-              Re-fetch availability from this link
-            </p>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
-      <button
-        ref={triggerRef}
-        type="button"
-        className="flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-danger/10 text-danger cursor-pointer hover:bg-danger/20 transition-colors duration-150"
-        aria-label="View parsing error"
-        tabIndex={0}
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-danger/10 text-danger cursor-pointer hover:bg-danger/20 transition-colors duration-150"
+          aria-label="View parsing error"
         >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-      </button>
-
-      {typeof document !== "undefined" &&
-        createPortal(popover, document.body)}
-    </div>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-64 p-3 text-left aqua-panel"
+        align="end"
+        sideOffset={6}
+      >
+        <p className="text-[11px] font-semibold text-danger mb-1">
+          Parsing Error
+        </p>
+        <p className="text-[11px] text-foreground/80 leading-relaxed break-words">
+          {error}
+        </p>
+        <div className="mt-2.5 flex gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRetry();
+            }}
+            disabled={isRetrying}
+            className="aqua-btn h-[24px] px-3 text-[11px] disabled:opacity-50"
+          >
+            {isRetrying ? "Retrying\u2026" : "Retry"}
+          </button>
+          <p className="text-[10px] text-muted/70 leading-tight self-center">
+            Re-fetch availability from this link
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

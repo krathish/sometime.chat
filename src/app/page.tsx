@@ -54,7 +54,7 @@ export default function Home() {
           <div className="px-8 py-10">
           <motion.div
             className="flex justify-center mb-5"
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ ...springTransition, delay: 0.03 }}
           >
@@ -74,8 +74,8 @@ export default function Home() {
           </motion.div>
 
           <motion.h1
-            className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground"
-            style={{ textWrap: "balance" }}
+            className="text-[48px] font-normal tracking-normal leading-[48px] text-foreground"
+            style={{ textWrap: "balance", fontFamily: "var(--font-perfectly-nineties), sans-serif" }}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springTransition, delay: 0.05 }}
@@ -84,18 +84,18 @@ export default function Home() {
           </motion.h1>
 
           <motion.p
-            className="mt-3 text-[15px] text-muted leading-relaxed"
+            className="mt-3 text-[14px] text-muted leading-[130%]"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springTransition, delay: 0.12 }}
+            transition={{ ...springTransition, delay: 0.08 }}
           >
-            See when everyone&apos;s free.
+            Connect your calendars and find<br />overlapping free time.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springTransition, delay: 0.2 }}
+            transition={{ ...springTransition, delay: 0.14 }}
             className="mt-4"
           >
             <motion.button
@@ -130,7 +130,7 @@ export default function Home() {
             className="mt-5 text-xs text-muted/60"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ ...springTransition, delay: 0.35 }}
+            transition={{ ...springTransition, delay: 0.22 }}
           >
             Built by <a href="http://krathish.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">Krathish</a>
           </motion.p>
@@ -139,7 +139,7 @@ export default function Home() {
             className="mt-2 text-xs text-muted/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ ...springTransition, delay: 0.4 }}
+            transition={{ ...springTransition, delay: 0.26 }}
           >
             <a href="/privacy" className="underline hover:text-muted/60 transition-colors">Privacy</a>
             {" · "}
