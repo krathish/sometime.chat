@@ -5,7 +5,13 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 
 import { cn } from "@/lib/utils"
 
-function Popover({ ...props }: PopoverPrimitive.Root.Props) {
+function Popover({
+  ...props
+}: PopoverPrimitive.Root.Props & {
+  openOnHover?: boolean
+  delay?: number
+  closeDelay?: number
+}) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
 }
 
