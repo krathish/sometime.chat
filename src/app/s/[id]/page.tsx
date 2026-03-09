@@ -782,6 +782,7 @@ export default function SessionPage({
                                   <Select
                                     value={slotStartTime}
                                     onValueChange={(val) => {
+                                      if (!val) return;
                                       setSlotStartTime(val);
                                       if (!slotEndTime || slotEndTime <= val) {
                                         const [h, m] = val.split(":").map(Number);
@@ -808,7 +809,7 @@ export default function SessionPage({
                                   </span>
                                   <Select
                                     value={slotEndTime}
-                                    onValueChange={(val) => setSlotEndTime(val)}
+                                    onValueChange={(val) => { if (val) setSlotEndTime(val); }}
                                   >
                                     <SelectTrigger className={`flex-1 min-w-0 text-[13px] h-[30px] bg-white border-border shadow-[inset_0_2px_4px_rgba(0,0,0,0.12),inset_0_0_0_0.5px_rgba(0,0,0,0.06),0_1px_0_rgba(255,255,255,0.7)] rounded-[5px] ${
                                       slotStartTime && slotEndTime && slotEndTime <= slotStartTime
