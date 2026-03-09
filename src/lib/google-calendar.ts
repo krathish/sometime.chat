@@ -2,7 +2,7 @@ import { google } from "googleapis";
 import type { TimeSlot } from "./parsers/types";
 
 const SCOPES = [
-  "https://www.googleapis.com/auth/calendar.events.readonly",
+  "https://www.googleapis.com/auth/calendar.freebusy",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
 ];
