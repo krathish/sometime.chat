@@ -598,7 +598,7 @@ export default function SessionPage({
                           placeholder="Paste scheduling link&hellip;"
                           value={url}
                           onChange={(e) => setUrl(e.target.value)}
-                          className="aqua-input flex-1 min-w-0"
+                          className="aqua-input sm:flex-1 min-w-0"
                           autoComplete="off"
                           spellCheck={false}
                           required
@@ -606,7 +606,7 @@ export default function SessionPage({
                         <motion.button
                           type="submit"
                           disabled={adding || !url.trim() || !name.trim()}
-                          className="aqua-btn h-[38px] sm:h-[30px] px-4 text-[13px] flex-shrink-0 w-full sm:w-auto"
+                          className="aqua-btn h-[32px] sm:h-[30px] px-4 text-[13px] flex-shrink-0 w-full sm:w-auto"
                           whileHover={{
                             scale: 1.02,
                             filter: "brightness(1.06)",
@@ -838,7 +838,7 @@ export default function SessionPage({
                             type="button"
                             onClick={handleSaveManualSlots}
                             disabled={adding || !name.trim()}
-                            className="aqua-btn h-[38px] sm:h-[30px] text-[13px] w-full mt-1"
+                            className="aqua-btn h-[32px] sm:h-[30px] text-[13px] w-full mt-1"
                             whileHover={{
                               scale: 1.01,
                               filter: "brightness(1.06)",
@@ -916,7 +916,7 @@ export default function SessionPage({
                             type="button"
                             onClick={handleSaveManualSlots}
                             disabled={adding || !name.trim()}
-                            className="aqua-btn h-[38px] sm:h-[30px] text-[13px] w-full mt-1"
+                            className="aqua-btn h-[32px] sm:h-[30px] text-[13px] w-full mt-1"
                             whileHover={{
                               scale: 1.01,
                               filter: "brightness(1.06)",
@@ -987,7 +987,7 @@ export default function SessionPage({
                             type="button"
                             onClick={handleConnectGoogle}
                             disabled={!name.trim()}
-                            className="aqua-btn h-[38px] sm:h-[34px] px-6 text-[13px] inline-flex items-center gap-2"
+                            className="aqua-btn h-[32px] sm:h-[34px] px-6 text-[13px] inline-flex items-center gap-2"
                             whileHover={{
                               scale: 1.02,
                               filter: "brightness(1.06)",
