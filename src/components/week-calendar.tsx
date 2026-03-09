@@ -335,11 +335,20 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
         </div>
       </div>
 
-      {weekSlots.length === 0 && weekLevelSlots.length === 0 && (
-        <p className="text-[11px] text-muted text-center mt-3">
-          No slots this week.
-        </p>
-      )}
+      <AnimatePresence>
+        {weekSlots.length === 0 && weekLevelSlots.length === 0 && (
+          <motion.p
+            key="no-slots"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-[11px] text-muted text-center mt-3"
+          >
+            No slots this week.
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -36,20 +36,31 @@ export default function Home() {
         transition={{ ...springTransition, duration: 0.7 }}
       >
         <motion.div
-          className="aqua-panel px-8 py-10 text-center"
+          className="aqua-panel overflow-hidden text-center"
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ ...springTransition, delay: 0.02 }}
         >
+          <div className="aqua-title-bar">
+            <span className="aqua-traffic-disabled" />
+            <span className="aqua-traffic-disabled" />
+            <span className="aqua-traffic-disabled" />
+            <span className="flex-1 text-center text-[11px] font-semibold text-muted select-none">
+              Sometime.Chat
+            </span>
+            <span className="w-[48px]" />
+          </div>
+
+          <div className="px-8 py-10">
           <motion.div
             className="flex justify-center mb-5"
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ ...springTransition, delay: 0.03 }}
           >
             <Image
-              src="/logo.svg"
-              alt="FreeTime"
+              src="/logo.png"
+              alt="Sometime.Chat"
               width={56}
               height={56}
               className="rounded-xl"
@@ -57,6 +68,7 @@ export default function Home() {
                 boxShadow:
                   "0 3px 10px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.08)",
               }}
+              unoptimized
               priority
             />
           </motion.div>
@@ -68,7 +80,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springTransition, delay: 0.05 }}
           >
-            Find Time Together, Fast
+            Sometime.Chat
           </motion.h1>
 
           <motion.p
@@ -77,14 +89,14 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springTransition, delay: 0.12 }}
           >
-            Paste your scheduling links. See when everyone&apos;s free.
+            See when everyone&apos;s free.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springTransition, delay: 0.2 }}
-            className="mt-8"
+            className="mt-4"
           >
             <motion.button
               onClick={handleCreate}
@@ -98,7 +110,7 @@ export default function Home() {
                 animate={{ opacity: creating ? 0 : 1 }}
                 transition={{ duration: 0.15 }}
               >
-                Find Free Time
+                Find time
               </motion.span>
 
               {creating && (
@@ -120,8 +132,9 @@ export default function Home() {
             animate={{ opacity: 1 }}
             transition={{ ...springTransition, delay: 0.35 }}
           >
-            Supports Calendly, Cal.com, Google &amp; Notion Calendar
+            Built by <a href="http://krathish.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">Krathish</a>. The source code is available on <a href="https://github.com/krathish/sometime.chat" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">GitHub</a>.
           </motion.p>
+          </div>
         </motion.div>
       </motion.div>
     </main>
