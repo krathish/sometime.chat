@@ -86,8 +86,8 @@ html {
 }
 
 body {
-  background: var(--background);
-  background-image: var(--pinstripe);
+  background: var(--background) url("/bg.png") no-repeat center center fixed;
+  background-size: cover;
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;

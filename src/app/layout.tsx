@@ -22,6 +22,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "FreeTime",
   description: "Find common free time across scheduling links",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
   other: {
     "theme-color": "#bec8d2",
   },

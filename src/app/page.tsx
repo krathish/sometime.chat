@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useSound } from "@/lib/use-sound";
@@ -40,6 +41,26 @@ export default function Home() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ ...springTransition, delay: 0.02 }}
         >
+          <motion.div
+            className="flex justify-center mb-5"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ ...springTransition, delay: 0.03 }}
+          >
+            <Image
+              src="/logo.svg"
+              alt="FreeTime"
+              width={56}
+              height={56}
+              className="rounded-xl"
+              style={{
+                boxShadow:
+                  "0 3px 10px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.08)",
+              }}
+              priority
+            />
+          </motion.div>
+
           <motion.h1
             className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground"
             style={{ textWrap: "balance" }}

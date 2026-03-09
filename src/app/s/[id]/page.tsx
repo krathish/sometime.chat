@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { toast } from "sonner";
@@ -518,9 +519,20 @@ export default function SessionPage({
           <motion.div {...enterAnim} className="mb-6">
             <a
               href="/"
-              className="text-sm text-muted hover:text-foreground transition-colors duration-150"
+              className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors duration-150"
             >
-              &larr; FreeTime
+              <Image
+                src="/logo.svg"
+                alt=""
+                width={22}
+                height={22}
+                className="rounded-[5px]"
+                style={{
+                  boxShadow:
+                    "0 1px 4px rgba(0,0,0,0.15), 0 0 0 0.5px rgba(0,0,0,0.08)",
+                }}
+              />
+              FreeTime
             </a>
           </motion.div>
 
