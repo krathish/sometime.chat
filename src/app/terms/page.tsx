@@ -12,7 +12,11 @@ export default function TermsOfService() {
       <div className="max-w-2xl w-full">
         <div className="aqua-panel overflow-hidden">
           <div className="aqua-title-bar">
-            <Link href="/" aria-label="Close">
+            <Link
+              href="/"
+              aria-label="Close"
+              className="inline-flex items-center justify-center cursor-pointer transition-opacity hover:opacity-80"
+            >
               <span className="aqua-traffic-light aqua-traffic-close" />
             </Link>
             <span className="aqua-traffic-disabled" />

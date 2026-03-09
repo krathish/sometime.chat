@@ -132,7 +132,18 @@ export default function Home() {
             animate={{ opacity: 1 }}
             transition={{ ...springTransition, delay: 0.35 }}
           >
-            Built by <a href="http://krathish.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">Krathish</a>. The source code is available on <a href="https://github.com/krathish/sometime.chat" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">GitHub</a>.
+            Built by <a href="http://krathish.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">Krathish</a>
+          </motion.p>
+
+          <motion.p
+            className="mt-2 text-xs text-muted/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ ...springTransition, delay: 0.4 }}
+          >
+            <a href="/privacy" className="underline hover:text-muted/60 transition-colors">Privacy</a>
+            {" · "}
+            <a href="/terms" className="underline hover:text-muted/60 transition-colors">Terms</a>
           </motion.p>
           </div>
         </motion.div>
