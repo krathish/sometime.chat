@@ -128,22 +128,29 @@ export default function SessionPage({
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [nameRequired, setNameRequired] = useState(false);
   const [results, setResults] = useState<CommonResult | null>(null);
   const [finding, setFinding] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>("link");
   const [pendingSlots, setPendingSlots] = useState<PendingSlot[]>([]);
-  const [slotDate, setSlotDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [slotDate, setSlotDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [slotStartTime, setSlotStartTime] = useState("");
   const [slotEndTime, setSlotEndTime] = useState("");
   const [resultsView, setResultsView] = useState<ViewMode>("list");
   const [expandedLink, setExpandedLink] = useState<string | null>(null);
   const [participantView, setParticipantView] = useState<ViewMode>("list");
   const playClick = useSound("/sounds/click.mp3", 0.4);
+  const playClose = useSound("/sounds/close.mp3", 0.5);
   const playNotify = useSound("/sounds/notify.mp3", 0.5);
   const playError = useSound("/sounds/error.mp3", 0.45);
+  const playTab = useSound("/sounds/tab.mp3", 0.4);
   const gcalHandled = useRef(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -318,7 +325,12 @@ export default function SessionPage({
   }
 
   async function handleSaveManualSlots() {
-    if (!name.trim() || pendingSlots.length === 0 || adding) return;
+    if (pendingSlots.length === 0 || adding) return;
+    if (!name.trim()) {
+      setNameRequired(true);
+      playError();
+      return;
+    }
     playClick();
     setAdding(true);
 
@@ -345,7 +357,8 @@ export default function SessionPage({
       toast.success(`Added ${data.slotsFound} manual slots`);
       setName("");
       setPendingSlots([]);
-      setSlotDate("");
+      const now = new Date();
+      setSlotDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
       setSlotStartTime("");
       setSlotEndTime("");
       await fetchSession();
@@ -474,22 +487,35 @@ export default function SessionPage({
     );
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const tomorrowDate = new Date(now);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowStr = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getDate()).padStart(2, "0")}`;
+
+  function formatDateLabel(dateStr: string) {
+    if (!dateStr) return "";
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    const day = date.getDate();
+    const suffix = [11, 12, 13].includes(day % 100)
+      ? "th"
+      : ["th", "st", "nd", "rd"][day % 10] || "th";
+    const month = date.toLocaleDateString("en-US", { month: "long" });
+    const currentYear = new Date().getFullYear();
+    return `${day}${suffix} ${month}${y !== currentYear ? ` ${y}` : ""}`;
+  }
+
+  function getDateTag(dateStr: string) {
+    if (dateStr === todayStr) return "Today";
+    if (dateStr === tomorrowStr) return "Tomorrow";
+    return null;
+  }
 
   return (
     <main className="min-h-screen py-6 sm:py-10 px-4 sm:px-6">
       <div className="max-w-xl mx-auto">
         <LayoutGroup>
-          {/* Back link */}
-          <motion.div {...enterAnim} className="mb-6">
-            <a
-              href="/"
-              className="text-sm text-muted hover:text-foreground transition-colors duration-150"
-            >
-              &larr; FreeTime
-            </a>
-          </motion.div>
-
           {/* Main panel */}
           <motion.div
             className="aqua-panel overflow-hidden"
@@ -497,14 +523,22 @@ export default function SessionPage({
             transition={{ ...spring, delay: 0.03 }}
           >
             {/* Title bar */}
-            <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/60 bg-gradient-to-b from-[#f6f6f6] to-[#dfdfdf]">
-              <span className="w-3 h-3 rounded-full bg-[#ff5f57] border border-[#e2463f]" />
-              <span className="w-3 h-3 rounded-full bg-[#febc2e] border border-[#e09e1a]" />
-              <span className="w-3 h-3 rounded-full bg-[#28c840] border border-[#1aab29]" />
-              <span className="flex-1 text-center text-xs font-medium text-muted select-none">
-                Session
+            <div className="aqua-title-bar">
+              <button
+                type="button"
+                onClick={() => {
+                  playClose();
+                  router.push("/");
+                }}
+                className="aqua-traffic-light aqua-traffic-close cursor-pointer transition-opacity hover:opacity-80"
+                aria-label="Back to home"
+              />
+              <span className="aqua-traffic-disabled" />
+              <span className="aqua-traffic-disabled" />
+              <span className="flex-1 text-center text-[11px] font-semibold text-muted select-none">
+                Sometime.Chat
               </span>
-              <span className="w-[54px]" />
+              <span className="w-[48px]" />
             </div>
 
             <div className="p-5 space-y-5">
@@ -537,34 +571,25 @@ export default function SessionPage({
                     Add Your Availability
                   </span>
                   <div className="aqua-tab-group">
-                    <button
-                      type="button"
-                      className={`aqua-tab ${inputMode === "link" ? "aqua-tab-active" : ""}`}
-                      onClick={() => setInputMode("link")}
-                    >
-                      Link
-                    </button>
-                    <button
-                      type="button"
-                      className={`aqua-tab ${inputMode === "manual" ? "aqua-tab-active" : ""}`}
-                      onClick={() => setInputMode("manual")}
-                    >
-                      Manual
-                    </button>
-                    <button
-                      type="button"
-                      className={`aqua-tab ${inputMode === "calendar" ? "aqua-tab-active" : ""}`}
-                      onClick={() => setInputMode("calendar")}
-                    >
-                      Calendar
-                    </button>
-                    <button
-                      type="button"
-                      className={`aqua-tab ${inputMode === "google" ? "aqua-tab-active" : ""}`}
-                      onClick={() => setInputMode("google")}
-                    >
-                      Google
-                    </button>
+                    {(["link", "manual", "calendar", "google"] as InputMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className="aqua-tab"
+                        onClick={() => { playTab(); setInputMode(mode); }}
+                      >
+                        {inputMode === mode && (
+                          <motion.span
+                            layoutId="input-tab-indicator"
+                            className="aqua-tab-indicator"
+                            transition={{ type: "spring", duration: 0.3, bounce: 0.1 }}
+                          />
+                        )}
+                        <span className={`relative z-[1] transition-colors duration-150 ${inputMode === mode ? "text-white" : ""}`} style={inputMode === mode ? { textShadow: "0 -1px 0 rgba(0,0,0,0.2)" } : undefined}>
+                          {mode[0].toUpperCase() + mode.slice(1)}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -598,7 +623,7 @@ export default function SessionPage({
                           placeholder="Paste scheduling link&hellip;"
                           value={url}
                           onChange={(e) => setUrl(e.target.value)}
-                          className="aqua-input flex-1 min-w-0"
+                          className="aqua-input sm:flex-1 min-w-0"
                           autoComplete="off"
                           spellCheck={false}
                           required
@@ -606,7 +631,7 @@ export default function SessionPage({
                         <motion.button
                           type="submit"
                           disabled={adding || !url.trim() || !name.trim()}
-                          className="aqua-btn h-[38px] sm:h-[30px] px-4 text-[13px] flex-shrink-0 w-full sm:w-auto"
+                          className="aqua-btn h-[32px] sm:h-[30px] px-4 text-[13px] flex-shrink-0 w-full sm:w-auto"
                           whileHover={{
                             scale: 1.02,
                             filter: "brightness(1.06)",
@@ -621,14 +646,31 @@ export default function SessionPage({
                             bounce: 0,
                           }}
                         >
-                          {adding ? (
-                            <span className="flex items-center justify-center gap-1.5">
-                              <span className="h-3 w-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
-                              Adding&hellip;
-                            </span>
-                          ) : (
-                            "Add"
-                          )}
+                          <AnimatePresence mode="wait" initial={false}>
+                            {adding ? (
+                              <motion.span
+                                key="adding"
+                                className="flex items-center justify-center gap-1.5"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.12 }}
+                              >
+                                <span className="h-3 w-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
+                                Adding&hellip;
+                              </motion.span>
+                            ) : (
+                              <motion.span
+                                key="add-label"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.12 }}
+                              >
+                                Add
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
                         </motion.button>
                       </div>
                     </motion.form>
@@ -658,14 +700,39 @@ export default function SessionPage({
                           onSubmit={handleAddPendingSlot}
                           className="flex flex-col gap-2"
                         >
-                          <input
-                            type="date"
-                            value={slotDate}
-                            onChange={(e) => setSlotDate(e.target.value)}
-                            min={todayStr}
-                            className="aqua-input text-[13px] w-full sm:flex-1"
-                            required
-                          />
+                          <div
+                            className="relative cursor-pointer"
+                            onClick={() => dateInputRef.current?.showPicker?.()}
+                          >
+                            <div className="aqua-input text-[13px] h-[32px] sm:h-[30px] flex items-center justify-between pointer-events-none">
+                              <span className="flex items-center gap-1.5">
+                                <span className={slotDate ? "text-foreground" : "text-[#999]"}>
+                                  {slotDate ? formatDateLabel(slotDate) : "Select date\u2026"}
+                                </span>
+                                {slotDate && getDateTag(slotDate) && (
+                                  <span className="text-[10px] font-medium text-accent bg-accent/10 border border-accent/20 rounded-full px-1.5 py-0.5 leading-none">
+                                    {getDateTag(slotDate)}
+                                  </span>
+                                )}
+                              </span>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted flex-shrink-0">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                              </svg>
+                            </div>
+                            <input
+                              ref={dateInputRef}
+                              type="date"
+                              value={slotDate}
+                              onChange={(e) => setSlotDate(e.target.value)}
+                              min={todayStr}
+                              className="absolute inset-0 opacity-0 pointer-events-none w-full h-full"
+                              required
+                              tabIndex={-1}
+                            />
+                          </div>
 
                           <AnimatePresence>
                             {slotDate && (
@@ -681,7 +748,7 @@ export default function SessionPage({
                                     <button
                                       key={preset.label}
                                       type="button"
-                                      className="text-[11px] px-2.5 py-1 rounded-full border border-border bg-white/60 text-muted hover:bg-white hover:text-foreground hover:border-foreground/20 transition-colors cursor-pointer"
+                                      className="flex-1 sm:flex-initial text-[11px] px-2.5 py-1 rounded-full border border-border bg-white/60 text-muted hover:bg-white hover:text-foreground hover:border-foreground/20 transition-colors cursor-pointer"
                                       onClick={() => {
                                         setSlotStartTime(preset.start);
                                         setSlotEndTime(preset.end);
@@ -742,11 +809,20 @@ export default function SessionPage({
                                   </select>
                                 </div>
 
-                                {slotStartTime && slotEndTime && slotEndTime <= slotStartTime && (
-                                  <p className="text-[11px] text-red-500 -mt-1">
-                                    End time must be after start time
-                                  </p>
-                                )}
+                                <AnimatePresence>
+                                  {slotStartTime && slotEndTime && slotEndTime <= slotStartTime && (
+                                    <motion.p
+                                      key="time-error"
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: "auto" }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="text-[11px] text-red-500 -mt-1 overflow-hidden"
+                                    >
+                                      End time must be after start time
+                                    </motion.p>
+                                  )}
+                                </AnimatePresence>
 
                                 <motion.button
                                   type="submit"
@@ -837,8 +913,8 @@ export default function SessionPage({
                           <motion.button
                             type="button"
                             onClick={handleSaveManualSlots}
-                            disabled={adding || !name.trim()}
-                            className="aqua-btn h-[38px] sm:h-[30px] text-[13px] w-full mt-1"
+                            disabled={adding}
+                            className="aqua-btn h-[32px] sm:h-[30px] text-[13px] w-full mt-1"
                             whileHover={{
                               scale: 1.01,
                               filter: "brightness(1.06)",
@@ -855,14 +931,31 @@ export default function SessionPage({
                             initial={{ opacity: 0, y: 4 }}
                             animate={{ opacity: 1, y: 0 }}
                           >
-                            {adding ? (
-                              <span className="flex items-center justify-center gap-1.5">
-                                <span className="h-3 w-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
-                                Saving&hellip;
-                              </span>
-                            ) : (
-                              `Save ${pendingSlots.length} slot${pendingSlots.length !== 1 ? "s" : ""}`
-                            )}
+                            <AnimatePresence mode="wait" initial={false}>
+                              {adding ? (
+                                <motion.span
+                                  key="saving"
+                                  className="flex items-center justify-center gap-1.5"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.12 }}
+                                >
+                                  <span className="h-3 w-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
+                                  Saving&hellip;
+                                </motion.span>
+                              ) : (
+                                <motion.span
+                                  key="save-label"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.12 }}
+                                >
+                                  {`Save ${pendingSlots.length} slot${pendingSlots.length !== 1 ? "s" : ""}`}
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
                           </motion.button>
                         )}
                       </div>
@@ -883,8 +976,11 @@ export default function SessionPage({
                           name="personName"
                           placeholder="Your name&hellip;"
                           value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className="aqua-input w-full sm:w-48"
+                          onChange={(e) => {
+                            setName(e.target.value);
+                            if (nameRequired) setNameRequired(false);
+                          }}
+                          className={`aqua-input w-full sm:w-48 ${nameRequired ? "!border-danger ring-2 ring-danger/30" : ""}`}
                           autoComplete="off"
                           spellCheck={false}
                         />
@@ -915,8 +1011,8 @@ export default function SessionPage({
                           <motion.button
                             type="button"
                             onClick={handleSaveManualSlots}
-                            disabled={adding || !name.trim()}
-                            className="aqua-btn h-[38px] sm:h-[30px] text-[13px] w-full mt-1"
+                            disabled={adding}
+                            className="aqua-btn h-[32px] sm:h-[30px] text-[13px] w-full mt-1"
                             whileHover={{
                               scale: 1.01,
                               filter: "brightness(1.06)",
@@ -933,14 +1029,31 @@ export default function SessionPage({
                             initial={{ opacity: 0, y: 4 }}
                             animate={{ opacity: 1, y: 0 }}
                           >
-                            {adding ? (
-                              <span className="flex items-center justify-center gap-1.5">
-                                <span className="h-3 w-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
-                                Saving&hellip;
-                              </span>
-                            ) : (
-                              `Save ${pendingSlots.length} slot${pendingSlots.length !== 1 ? "s" : ""}`
-                            )}
+                            <AnimatePresence mode="wait" initial={false}>
+                              {adding ? (
+                                <motion.span
+                                  key="saving"
+                                  className="flex items-center justify-center gap-1.5"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.12 }}
+                                >
+                                  <span className="h-3 w-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
+                                  Saving&hellip;
+                                </motion.span>
+                              ) : (
+                                <motion.span
+                                  key="save-label"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.12 }}
+                                >
+                                  {`Save ${pendingSlots.length} slot${pendingSlots.length !== 1 ? "s" : ""}`}
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
                           </motion.button>
                         )}
                       </div>
@@ -987,7 +1100,7 @@ export default function SessionPage({
                             type="button"
                             onClick={handleConnectGoogle}
                             disabled={!name.trim()}
-                            className="aqua-btn h-[38px] sm:h-[34px] px-6 text-[13px] inline-flex items-center gap-2"
+                            className="aqua-btn h-[32px] sm:h-[34px] px-6 text-[13px] inline-flex items-center gap-2"
                             whileHover={{
                               scale: 1.02,
                               filter: "brightness(1.06)",
@@ -1009,11 +1122,20 @@ export default function SessionPage({
                             </svg>
                             Connect Google Calendar
                           </motion.button>
-                          {!name.trim() && (
-                            <p className="text-[10px] text-muted mt-2">
-                              Enter your name above to continue
-                            </p>
-                          )}
+                          <AnimatePresence>
+                            {!name.trim() && (
+                              <motion.p
+                                key="name-hint"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="text-[10px] text-muted mt-2"
+                              >
+                                Enter your name above to continue
+                              </motion.p>
+                            )}
+                          </AnimatePresence>
                         </div>
                       </div>
                     </motion.div>
@@ -1094,7 +1216,7 @@ export default function SessionPage({
                                     <button
                                       type="button"
                                       onClick={() => toggleExpandLink(link.id)}
-                                      className="text-[11px] text-accent hover:underline cursor-pointer tabular-nums"
+                                      className="text-[11px] text-accent hover:text-accent/70 cursor-pointer tabular-nums transition-colors duration-150"
                                       style={{
                                         fontVariantNumeric: "tabular-nums",
                                       }}
@@ -1218,15 +1340,35 @@ export default function SessionPage({
                                         }}
                                       />
                                     </div>
-                                    {participantView === "list" ? (
-                                      <SlotList
-                                        slots={link.availability}
-                                      />
-                                    ) : (
-                                      <WeekCalendar
-                                        slots={link.availability}
-                                      />
-                                    )}
+                                    <div className="max-h-[280px] overflow-y-auto">
+                                      <AnimatePresence mode="wait" initial={false}>
+                                        {participantView === "list" ? (
+                                          <motion.div
+                                            key="p-list"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.15 }}
+                                          >
+                                            <SlotList
+                                              slots={link.availability}
+                                            />
+                                          </motion.div>
+                                        ) : (
+                                          <motion.div
+                                            key="p-calendar"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.15 }}
+                                          >
+                                            <WeekCalendar
+                                              slots={link.availability}
+                                            />
+                                          </motion.div>
+                                        )}
+                                      </AnimatePresence>
+                                    </div>
                                   </div>
                                 </motion.div>
                               )}
@@ -1240,43 +1382,68 @@ export default function SessionPage({
               </div>
 
               {/* Hint */}
-              {session.links.length === 1 && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ ...spring, delay: 0.1 }}
-                  className="text-center text-[11px] text-muted"
-                >
-                  Need at least 2 participants to find common times.
-                </motion.p>
-              )}
+              <AnimatePresence>
+                {session.links.length === 1 && (
+                  <motion.p
+                    key="min-hint"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={spring}
+                    className="text-center text-[11px] text-muted"
+                  >
+                    Need at least 2 participants to find common times.
+                  </motion.p>
+                )}
+              </AnimatePresence>
 
               {/* Find Common Times */}
-              {session.links.length >= 2 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...spring, delay: 0.05 }}
-                >
-                  <motion.button
-                    onClick={handleFindCommon}
-                    disabled={finding}
-                    className="aqua-btn w-full h-[42px] sm:h-[34px] text-[14px]"
-                    whileHover={{ scale: 1.01, filter: "brightness(1.06)" }}
-                    whileTap={{ scale: 0.98, filter: "brightness(0.94)" }}
-                    transition={{ type: "spring", duration: 0.2, bounce: 0 }}
+              <AnimatePresence>
+                {session.links.length >= 2 && (
+                  <motion.div
+                    key="find-btn"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={spring}
                   >
-                    {finding ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        Finding&hellip;
-                      </span>
-                    ) : (
-                      "Find Common Times"
-                    )}
-                  </motion.button>
-                </motion.div>
-              )}
+                    <motion.button
+                      onClick={handleFindCommon}
+                      disabled={finding}
+                      className="aqua-btn w-full h-[42px] sm:h-[34px] text-[14px]"
+                      whileHover={{ scale: 1.01, filter: "brightness(1.06)" }}
+                      whileTap={{ scale: 0.98, filter: "brightness(0.94)" }}
+                      transition={{ type: "spring", duration: 0.2, bounce: 0 }}
+                    >
+                      <AnimatePresence mode="wait" initial={false}>
+                        {finding ? (
+                          <motion.span
+                            key="finding"
+                            className="flex items-center justify-center gap-2"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.12 }}
+                          >
+                            <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                            Finding&hellip;
+                          </motion.span>
+                        ) : (
+                          <motion.span
+                            key="find-label"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.12 }}
+                          >
+                            Find Common Times
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
 
@@ -1290,8 +1457,8 @@ export default function SessionPage({
                 transition={{ ...spring, delay: 0.05 }}
                 className="mt-4 aqua-panel overflow-hidden"
               >
-                <div className="flex items-center px-4 py-2 border-b border-border/60 bg-gradient-to-b from-[#f6f6f6] to-[#dfdfdf]">
-                  <span className="flex-1 text-center text-xs font-medium text-muted select-none">
+                <div className="aqua-title-bar">
+                  <span className="flex-1 text-center text-[11px] font-semibold text-muted select-none">
                     Common Availability
                   </span>
                   <ViewToggle
@@ -1333,47 +1500,63 @@ export default function SessionPage({
                         Try different links or a wider date range.
                       </p>
                     </motion.div>
-                  ) : resultsView === "list" ? (
-                    <div className="space-y-4">
-                      {Object.entries(results.groupedLevels).map(
-                        ([date, slots], dateIdx) => (
-                          <motion.div
-                            key={date}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{
-                              ...spring,
-                              delay: 0.1 + dateIdx * 0.05,
-                            }}
-                          >
-                            <h2 className="text-[13px] font-semibold text-foreground mb-1.5">
-                              {formatDate(date)}
-                            </h2>
-                            <div className="flex flex-wrap gap-1">
-                              {slots.map((slot, slotIdx) => (
-                                <LevelSlotBadge
-                                  key={`${slot.start}-${slot.end}`}
-                                  slot={slot}
-                                  comfort={results.timezoneInsights?.slotComforts.find(
-                                    (c) => c.start === slot.start && c.end === slot.end
-                                  )?.comfort ?? null}
-                                  delay={
-                                    0.15 +
-                                    dateIdx * 0.05 +
-                                    slotIdx * 0.02
-                                  }
-                                />
-                              ))}
-                            </div>
-                          </motion.div>
-                        )
-                      )}
-                    </div>
                   ) : (
-                    <WeekCalendar
-                      slots={results.commonSlots || []}
-                      levelSlots={results.levelSlots}
-                    />
+                    <AnimatePresence mode="wait" initial={false}>
+                      {resultsView === "list" ? (
+                        <motion.div
+                          key="results-list"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <div className="space-y-4">
+                            {Object.entries(results.groupedLevels).map(
+                              ([date, slots], dateIdx) => (
+                                <motion.div
+                                  key={date}
+                                  initial={{ opacity: 0, y: 8 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{
+                                    ...spring,
+                                    delay: Math.min(0.25, 0.05 + dateIdx * 0.04),
+                                  }}
+                                >
+                                  <h2 className="text-[13px] font-semibold text-foreground mb-1.5">
+                                    {formatDate(date)}
+                                  </h2>
+                                  <div className="flex flex-wrap gap-1">
+                                    {slots.map((slot, slotIdx) => (
+                                      <LevelSlotBadge
+                                        key={`${slot.start}-${slot.end}`}
+                                        slot={slot}
+                                        comfort={results.timezoneInsights?.slotComforts.find(
+                                          (c) => c.start === slot.start && c.end === slot.end
+                                        )?.comfort ?? null}
+                                        delay={Math.min(0.3, 0.08 + dateIdx * 0.04 + slotIdx * 0.015)}
+                                      />
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )
+                            )}
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="results-calendar"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <WeekCalendar
+                            slots={results.commonSlots || []}
+                            levelSlots={results.levelSlots}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   )}
                 </div>
               </motion.div>

@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,11 +15,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: "FreeTime",
-  description: "Find common free time across scheduling links",
+  title: "Sometime.Chat",
+  description: "See when everyone's free",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   other: {
-    "theme-color": "#d4d0c8",
+    "theme-color": "#bec8d2",
   },
 };
 
@@ -30,22 +41,24 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="theme-color" content="#d4d0c8" />
+        <meta name="theme-color" content="#bec8d2" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <Providers>
+          {children}
+        </Providers>
         <Toaster
           position="bottom-center"
           toastOptions={{
             style: {
               fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
-              background: "#ececec",
-              border: "1px solid #a0a0a0",
+              background: "linear-gradient(180deg, #f5f6f8 0%, #e6e9ed 100%)",
+              border: "1px solid #8e99a4",
               boxShadow:
-                "0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)",
-              borderRadius: "8px",
+                "0 3px 12px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.1)",
+              borderRadius: "10px",
               color: "#1a1a1a",
             },
           }}

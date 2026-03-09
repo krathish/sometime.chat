@@ -104,7 +104,8 @@ export async function GET(req: Request) {
       )
     );
   } catch (err) {
-    console.error("Google Calendar OAuth callback error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Google Calendar OAuth callback error:", message, err);
     return NextResponse.redirect(
       new URL(`/s/${sessionId}?gcal=error`, url.origin)
     );
