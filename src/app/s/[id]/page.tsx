@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { toast } from "sonner";
-import { CopyButton } from "@/components/copy-button";
 import { PlatformBadge } from "@/components/platform-badge";
 import { WeekCalendar } from "@/components/week-calendar";
 import { InteractiveCalendar } from "@/components/interactive-calendar";
@@ -43,6 +42,7 @@ interface LinkData {
 
 interface SessionData {
   id: string;
+  code: string | null;
   name: string | null;
   links: LinkData[];
 }
@@ -162,6 +162,9 @@ export default function SessionPage({
   const [resultsView, setResultsView] = useState<ViewMode>("list");
   const [expandedLink, setExpandedLink] = useState<string | null>(null);
   const [participantView, setParticipantView] = useState<ViewMode>("list");
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const playClick = useSound("/sounds/click.mp3", 0.4);
   const playClose = useSound("/sounds/close.mp3", 0.5);
   const playNotify = useSound("/sounds/notify.mp3", 0.5);
@@ -460,6 +463,29 @@ export default function SessionPage({
     }
   }
 
+  function startEditingName() {
+    setDraftName(session?.name || "");
+    setEditingName(true);
+    setTimeout(() => nameInputRef.current?.select(), 0);
+  }
+
+  async function saveName() {
+    const trimmed = draftName.trim();
+    setEditingName(false);
+    if (!trimmed || trimmed === session?.name) return;
+
+    try {
+      await fetch(`/api/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      setSession((prev) => prev ? { ...prev, name: trimmed } : prev);
+    } catch {
+      playError();
+    }
+  }
+
   function toggleExpandLink(linkId: string) {
     playClick();
     setExpandedLink((prev) => (prev === linkId ? null : linkId));
@@ -559,25 +585,66 @@ export default function SessionPage({
             </div>
 
             <div className="p-5 space-y-5">
-              {/* Share URL */}
-              <div>
-                <label
-                  htmlFor="share-url"
-                  className="text-[11px] font-semibold text-muted uppercase tracking-wider"
-                >
-                  Share This Link
-                </label>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <input
-                    id="share-url"
-                    type="text"
-                    readOnly
-                    value={shareUrl}
-                    className="aqua-input flex-1 min-w-0 font-mono text-[12px] truncate"
-                    onFocus={(e) => e.target.select()}
-                    tabIndex={0}
-                  />
-                  <CopyButton text={shareUrl} />
+              {/* Event name + Share */}
+              <div className="flex items-center justify-between gap-4">
+                {/* Left: Event Name */}
+                <div className="min-w-0">
+                  <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">
+                    Event Name
+                  </label>
+                  <div className="group/name mt-0.5 flex items-center gap-1.5 h-[30px]">
+                    {editingName ? (
+                      <input
+                        ref={nameInputRef}
+                        type="text"
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        onBlur={saveName}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveName();
+                          if (e.key === "Escape") setEditingName(false);
+                        }}
+                        className="bg-transparent text-[20px] leading-[30px] h-[30px] font-semibold text-foreground outline-none border-b-2 border-accent/40 focus:border-accent w-full max-w-[240px]"
+                        autoFocus
+                        spellCheck={false}
+                      />
+                    ) : (
+                      <motion.button
+                        type="button"
+                        onClick={startEditingName}
+                        className="text-[20px] leading-[30px] h-[30px] font-semibold text-foreground cursor-pointer flex items-center gap-1.5 hover:text-accent transition-colors duration-150 truncate"
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="truncate">{session.name || "Untitled Session"}</span>
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-muted/0 group-hover/name:text-muted/60 transition-colors duration-150 shrink-0"
+                          aria-hidden="true"
+                        >
+                          <path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5Z" />
+                          <path d="m15 5 4 4" />
+                        </svg>
+                      </motion.button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Share */}
+                <div className="shrink-0">
+                  <div className="flex items-center gap-1.5 h-full justify-end">
+                    {session.code && (
+                      <ShareCopyButton text={session.code} label={session.code} icon="code" />
+                    )}
+                    <span className="text-muted/25 text-[10px]">|</span>
+                    <ShareCopyButton text={shareUrl} label="link" icon="link" />
+                  </div>
                 </div>
               </div>
 
@@ -1963,6 +2030,71 @@ function TimezoneInsightsBanner({
         </div>
       </div>
     </motion.div>
+  );
+}
+
+/* ── Unified share copy button (code / link) ── */
+
+function ShareCopyButton({ text, label, icon }: { text: string; label: string; icon: "code" | "link" }) {
+  const [copied, setCopied] = useState(false);
+  const playClick = useSound("/sounds/click.mp3", 0.3);
+
+  async function handleCopy() {
+    playClick();
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const iconSvg = icon === "link" ? (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+    </svg>
+  ) : (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+
+  return (
+    <motion.button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 text-[12px] font-semibold tracking-wide text-muted hover:text-accent cursor-pointer transition-colors duration-150"
+      whileTap={{ scale: 0.95 }}
+      aria-label={`Copy ${icon}`}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {copied ? (
+          <motion.span
+            key="copied"
+            className="flex items-center gap-1 text-accent"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            copied
+          </motion.span>
+        ) : (
+          <motion.span
+            key="default"
+            className="flex items-center gap-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+          >
+            {iconSvg}
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
   );
 }
 

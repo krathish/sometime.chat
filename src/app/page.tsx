@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { useSound } from "@/lib/use-sound";
 
 const springTransition = { type: "spring" as const, duration: 0.5, bounce: 0 };
@@ -11,7 +12,10 @@ const springTransition = { type: "spring" as const, duration: 0.5, bounce: 0 };
 export default function Home() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
   const playClick = useSound("/sounds/click.mp3", 0.4);
+  const playError = useSound("/sounds/error.mp3", 0.45);
 
   async function handleCreate() {
     if (creating) return;
@@ -24,6 +28,32 @@ export default function Home() {
       router.push(`/s/${data.id}`);
     } catch {
       setCreating(false);
+    }
+  }
+
+  async function handleJoin(e: React.FormEvent) {
+    e.preventDefault();
+    const code = joinCode.trim().toUpperCase();
+    if (!code || joining) return;
+    playClick();
+    setJoining(true);
+
+    try {
+      const res = await fetch(`/api/sessions/join?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        playError();
+        toast.error(data.error || "Session not found");
+        return;
+      }
+
+      router.push(`/s/${data.id}`);
+    } catch {
+      playError();
+      toast.error("Something went wrong");
+    } finally {
+      setJoining(false);
     }
   }
 
@@ -125,6 +155,72 @@ export default function Home() {
               )}
             </motion.button>
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ ...springTransition, delay: 0.18 }}
+            className="mt-4 flex items-center gap-3"
+          >
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-[11px] text-muted/60 uppercase tracking-wider font-medium">or</span>
+            <div className="flex-1 h-px bg-border" />
+          </motion.div>
+
+          <motion.form
+            onSubmit={handleJoin}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...springTransition, delay: 0.2 }}
+            className="mt-4"
+          >
+            <p className="text-[12px] text-muted mb-2">Have a code? Join a session.</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Enter code…"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0, 6))}
+                className="aqua-input flex-1 min-w-0 font-mono text-center text-[15px] tracking-[0.2em] uppercase"
+                maxLength={6}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <motion.button
+                type="submit"
+                disabled={joinCode.trim().length === 0 || joining}
+                className="aqua-btn relative h-[42px] sm:h-[34px] px-5 text-[14px] sm:text-[13px]"
+                whileHover={{ scale: 1.02, filter: "brightness(1.06)" }}
+                whileTap={{ scale: 0.97, filter: "brightness(0.94)" }}
+                transition={{ type: "spring", duration: 0.2, bounce: 0 }}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {joining ? (
+                    <motion.span
+                      key="joining"
+                      className="flex items-center justify-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="join-label"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      Join
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            </div>
+          </motion.form>
 
           <motion.p
             className="mt-5 text-xs text-muted/60"

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { sessions, links, calendarAccounts } from "@/lib/db/schema";
@@ -45,4 +45,21 @@ export async function GET(
       };
     }),
   });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const body = await req.json();
+  const name = typeof body.name === "string" ? body.name.trim() : null;
+
+  if (!name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  }
+
+  await db.update(sessions).set({ name }).where(eq(sessions.id, id));
+
+  return NextResponse.json({ ok: true, name });
 }
