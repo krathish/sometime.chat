@@ -93,6 +93,26 @@ const enterAnim = {
   transition: spring,
 };
 
+const TIME_OPTIONS = (() => {
+  const opts: { value: string; label: string }[] = [];
+  for (let h = 7; h <= 22; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const hour12 = h % 12 || 12;
+      const ampm = h < 12 ? "AM" : "PM";
+      const label = `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+      opts.push({ value, label });
+    }
+  }
+  return opts;
+})();
+
+const TIME_PRESETS = [
+  { label: "Morning", start: "09:00", end: "12:00" },
+  { label: "Afternoon", start: "12:00", end: "17:00" },
+  { label: "Evening", start: "17:00", end: "21:00" },
+];
+
 let pendingIdCounter = 0;
 
 export default function SessionPage({
@@ -114,7 +134,7 @@ export default function SessionPage({
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>("link");
   const [pendingSlots, setPendingSlots] = useState<PendingSlot[]>([]);
-  const [slotDate, setSlotDate] = useState("");
+  const [slotDate, setSlotDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [slotStartTime, setSlotStartTime] = useState("");
   const [slotEndTime, setSlotEndTime] = useState("");
   const [resultsView, setResultsView] = useState<ViewMode>("list");
@@ -646,60 +666,116 @@ export default function SessionPage({
                             className="aqua-input text-[13px] w-full sm:flex-1"
                             required
                           />
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="time"
-                              value={slotStartTime}
-                              onChange={(e) => setSlotStartTime(e.target.value)}
-                              className="aqua-input text-[13px] flex-1 min-w-0"
-                              required
-                            />
-                            <span className="flex items-center text-[11px] text-muted shrink-0">
-                              to
-                            </span>
-                            <input
-                              type="time"
-                              value={slotEndTime}
-                              onChange={(e) => setSlotEndTime(e.target.value)}
-                              className="aqua-input text-[13px] flex-1 min-w-0"
-                              required
-                            />
-                            <motion.button
-                              type="submit"
-                              disabled={
-                                !slotDate || !slotStartTime || !slotEndTime
-                              }
-                              className="aqua-btn h-[30px] sm:h-[30px] w-[38px] sm:w-[30px] !px-0 flex-shrink-0 flex items-center justify-center"
-                              whileHover={{
-                                scale: 1.06,
-                                filter: "brightness(1.06)",
-                              }}
-                              whileTap={{
-                                scale: 0.92,
-                                filter: "brightness(0.94)",
-                              }}
-                              transition={{
-                                type: "spring",
-                                duration: 0.2,
-                                bounce: 0,
-                              }}
-                              aria-label="Add time slot"
-                            >
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                aria-hidden="true"
+
+                          <AnimatePresence>
+                            {slotDate && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ type: "spring", duration: 0.3, bounce: 0 }}
+                                className="flex flex-col gap-2 overflow-hidden"
                               >
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                              </svg>
-                            </motion.button>
-                          </div>
+                                <div className="flex items-center gap-1.5">
+                                  {TIME_PRESETS.map((preset) => (
+                                    <button
+                                      key={preset.label}
+                                      type="button"
+                                      className="text-[11px] px-2.5 py-1 rounded-full border border-border bg-white/60 text-muted hover:bg-white hover:text-foreground hover:border-foreground/20 transition-colors cursor-pointer"
+                                      onClick={() => {
+                                        setSlotStartTime(preset.start);
+                                        setSlotEndTime(preset.end);
+                                      }}
+                                    >
+                                      {preset.label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={slotStartTime}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setSlotStartTime(val);
+                                      if (!slotEndTime || slotEndTime <= val) {
+                                        const [h, m] = val.split(":").map(Number);
+                                        const endH = Math.min(h + 1, 22);
+                                        setSlotEndTime(
+                                          `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+                                        );
+                                      }
+                                    }}
+                                    className="aqua-input text-[13px] flex-1 min-w-0"
+                                    required
+                                  >
+                                    <option value="" disabled>
+                                      Start time
+                                    </option>
+                                    {TIME_OPTIONS.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span className="flex items-center text-[11px] text-muted shrink-0">
+                                    to
+                                  </span>
+                                  <select
+                                    value={slotEndTime}
+                                    onChange={(e) => setSlotEndTime(e.target.value)}
+                                    className={`aqua-input text-[13px] flex-1 min-w-0 ${
+                                      slotStartTime && slotEndTime && slotEndTime <= slotStartTime
+                                        ? "!border-red-400"
+                                        : ""
+                                    }`}
+                                    required
+                                  >
+                                    <option value="" disabled>
+                                      End time
+                                    </option>
+                                    {TIME_OPTIONS.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {slotStartTime && slotEndTime && slotEndTime <= slotStartTime && (
+                                  <p className="text-[11px] text-red-500 -mt-1">
+                                    End time must be after start time
+                                  </p>
+                                )}
+
+                                <motion.button
+                                  type="submit"
+                                  disabled={
+                                    !slotDate ||
+                                    !slotStartTime ||
+                                    !slotEndTime ||
+                                    slotEndTime <= slotStartTime
+                                  }
+                                  className="aqua-btn h-[30px] text-[13px] w-full"
+                                  whileHover={{
+                                    scale: 1.01,
+                                    filter: "brightness(1.06)",
+                                  }}
+                                  whileTap={{
+                                    scale: 0.97,
+                                    filter: "brightness(0.94)",
+                                  }}
+                                  transition={{
+                                    type: "spring",
+                                    duration: 0.2,
+                                    bounce: 0,
+                                  }}
+                                >
+                                  Add slot
+                                </motion.button>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </form>
 
                         {/* Pending slots list */}
