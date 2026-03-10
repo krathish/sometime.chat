@@ -318,6 +318,10 @@ body::before {
   box-shadow: var(--panel-shadow);
 }
 
+[data-slot="popover-content"].aqua-panel {
+  border-color: rgba(142,153,164,0.3);
+}
+
 .aqua-traffic-disabled {
   width: 12px;
   height: 12px;
@@ -570,6 +574,26 @@ body::before {
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.35),
     0 1px 2px rgba(0,0,0,0.15);
+}
+
+.week-cal-slot-busy {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0,0,0,0.04),
+    rgba(0,0,0,0.04) 3px,
+    rgba(0,0,0,0.08) 3px,
+    rgba(0,0,0,0.08) 6px
+  );
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 4px;
+  min-height: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 /* ── Interactive calendar ── */

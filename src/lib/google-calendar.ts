@@ -45,8 +45,9 @@ export async function getUserInfo(accessToken: string) {
 
 export async function fetchCalendarFreeSlots(
   accessToken: string,
-  refreshToken?: string | null
-): Promise<{ slots: TimeSlot[]; newAccessToken?: string }> {
+  refreshToken?: string | null,
+  timezone?: string | null
+): Promise<{ slots: TimeSlot[]; busySlots: TimeSlot[]; newAccessToken?: string }> {
   const client = getOAuth2Client();
   client.setCredentials({
     access_token: accessToken,
@@ -80,8 +81,15 @@ export async function fetchCalendarFreeSlots(
       end: new Date(b.end!),
     }));
 
-  const slots = invertToFreeSlots(busyPeriods, now, horizon);
-  return { slots, newAccessToken };
+  const tz = timezone || "UTC";
+  const slots = invertToFreeSlots(busyPeriods, now, horizon, tz);
+
+  const busySlots: TimeSlot[] = busyPeriods.map((b) => ({
+    start: b.start.toISOString(),
+    end: b.end.toISOString(),
+  }));
+
+  return { slots, busySlots, newAccessToken };
 }
 
 interface CalEvent {
@@ -89,29 +97,47 @@ interface CalEvent {
   end: Date;
 }
 
+function getWorkBounds(dateStr: string, tz: string): { workStart: Date; workEnd: Date; dayOfWeek: number } {
+  const workStartLocal = new Date(`${dateStr}T${String(WORK_DAY_START_HOUR).padStart(2, "0")}:00:00`);
+  const workEndLocal = new Date(`${dateStr}T${String(WORK_DAY_END_HOUR).padStart(2, "0")}:00:00`);
+
+  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" });
+  const dayOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
+    formatter.format(workStartLocal)
+  );
+
+  const offsetMs = getTimezoneOffsetMs(workStartLocal, tz);
+  const workStart = new Date(workStartLocal.getTime() - offsetMs);
+  const workEnd = new Date(workEndLocal.getTime() - offsetMs);
+
+  return { workStart, workEnd, dayOfWeek };
+}
+
+function getTimezoneOffsetMs(date: Date, tz: string): number {
+  const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
+  const tzStr = date.toLocaleString("en-US", { timeZone: tz });
+  return new Date(tzStr).getTime() - new Date(utcStr).getTime();
+}
+
 function invertToFreeSlots(
   events: CalEvent[],
   now: Date,
-  horizon: Date
+  horizon: Date,
+  tz: string
 ): TimeSlot[] {
   const freeSlots: TimeSlot[] = [];
   const sorted = [...events].sort(
     (a, b) => a.start.getTime() - b.start.getTime()
   );
 
-  const startDay = new Date(now);
-  startDay.setUTCHours(0, 0, 0, 0);
+  const startDay = new Date(now.toLocaleDateString("en-CA", { timeZone: tz }) + "T00:00:00");
 
   for (let d = 0; d < LOOKAHEAD_DAYS; d++) {
-    const day = new Date(startDay.getTime() + d * 86400000);
-    const dayOfWeek = day.getUTCDay();
+    const dayDate = new Date(startDay.getTime() + d * 86400000);
+    const dateStr = dayDate.toISOString().slice(0, 10);
+    const { workStart, workEnd, dayOfWeek } = getWorkBounds(dateStr, tz);
 
     if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
-    const workStart = new Date(day);
-    workStart.setUTCHours(WORK_DAY_START_HOUR, 0, 0, 0);
-    const workEnd = new Date(day);
-    workEnd.setUTCHours(WORK_DAY_END_HOUR, 0, 0, 0);
 
     const effectiveStart = workStart < now ? now : workStart;
     if (effectiveStart >= workEnd) continue;
@@ -172,9 +198,6 @@ function mergeEvents(events: CalEvent[]): CalEvent[] {
 }
 
 export function buildRedirectUri(requestUrl: string): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`;
-  }
   const url = new URL(requestUrl);
   return `${url.origin}/api/auth/google/callback`;
 }

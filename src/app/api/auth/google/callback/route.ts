@@ -60,9 +60,10 @@ export async function GET(req: Request) {
     const userInfo = await getUserInfo(tokens.access_token);
     const displayName = personName || userInfo.name || "Unknown";
 
-    const { slots, newAccessToken } = await fetchCalendarFreeSlots(
+    const { slots, busySlots, newAccessToken } = await fetchCalendarFreeSlots(
       tokens.access_token,
-      tokens.refresh_token
+      tokens.refresh_token,
+      timezone
     );
 
     const linkId = nanoid(10);
@@ -78,9 +79,10 @@ export async function GET(req: Request) {
       platform: "gcal",
       timezone: timezone || null,
       availabilityJson: slots.length > 0 ? JSON.stringify(slots) : null,
+      busyJson: busySlots.length > 0 ? JSON.stringify(busySlots) : null,
       parseError:
         slots.length === 0
-          ? "No free slots found in the next 14 days (weekdays, 9AM\u20135PM UTC)"
+          ? "No free slots found in the next 14 days (weekdays, 9AM\u20135PM)"
           : null,
     });
 

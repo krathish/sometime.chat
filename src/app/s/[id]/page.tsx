@@ -25,6 +25,7 @@ interface LinkData {
   personName: string;
   platform: string;
   availability: { start: string; end: string }[] | null;
+  busySlots: { start: string; end: string }[] | null;
   error: string | null;
   canRefresh?: boolean;
   calendarEmail?: string | null;
@@ -141,6 +142,8 @@ export default function SessionPage({
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const submitCountRef = useRef(0);
+  const [lastSubmittedName, setLastSubmittedName] = useState("");
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [activeParticipants, setActiveParticipants] = useState<Set<string>>(new Set());
   const [resultsHaveSlots, setResultsHaveSlots] = useState(false);
@@ -190,6 +193,8 @@ export default function SessionPage({
       toast.success(
         `Google Calendar connected${gcalName ? ` for ${gcalName}` : ""}${slots ? ` \u2014 ${slots} free slots found` : ""}`
       );
+      setLastSubmittedName(gcalName || "");
+      submitCountRef.current += 1;
       setHasSubmitted(true);
       setShareTooltipOpen(true);
     } else if (gcal === "denied") {
@@ -371,6 +376,8 @@ export default function SessionPage({
         toast("Link added, but no available slots were detected");
       }
 
+      setLastSubmittedName(name.trim());
+      submitCountRef.current += 1;
       setUrl("");
       setName("");
       setHasSubmitted(true);
@@ -415,6 +422,8 @@ export default function SessionPage({
       }
 
       toast.success(`Added ${data.slotsFound} manual slots`);
+      setLastSubmittedName(name.trim());
+      submitCountRef.current += 1;
       setName("");
       setPendingSlots([]);
       setHasSubmitted(true);
@@ -889,7 +898,9 @@ export default function SessionPage({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ type: "spring", duration: 0.35, bounce: 0, delay: 0.18 }}
                       >
-                        Your availability has been added
+                        {submitCountRef.current <= 1
+                          ? "Your availability has been added"
+                          : `${lastSubmittedName}\u2019s availability has been added`}
                       </motion.p>
                       <motion.p
                         className="text-[11px] text-emerald-600/80 mt-1"
@@ -1439,6 +1450,7 @@ export default function SessionPage({
                                           >
                                             <SlotList
                                               slots={link.availability}
+                                              busySlots={link.busySlots}
                                             />
                                           </motion.div>
                                         ) : (
@@ -1451,6 +1463,7 @@ export default function SessionPage({
                                           >
                                             <WeekCalendar
                                               slots={link.availability}
+                                              busySlots={link.busySlots}
                                             />
                                           </motion.div>
                                         )}
@@ -1690,28 +1703,54 @@ export default function SessionPage({
 
 /* ── Slot list (reusable for participant detail) ── */
 
-function SlotList({ slots }: { slots: { start: string; end: string }[] }) {
-  const grouped: Record<string, { start: string; end: string }[]> = {};
+function SlotList({
+  slots,
+  busySlots,
+}: {
+  slots: { start: string; end: string }[];
+  busySlots?: { start: string; end: string }[] | null;
+}) {
+  const grouped: Record<string, { start: string; end: string; type: "free" | "busy" }[]> = {};
   for (const slot of slots) {
     const date = new Date(slot.start).toLocaleDateString("en-CA");
     if (!grouped[date]) grouped[date] = [];
-    grouped[date].push(slot);
+    grouped[date].push({ ...slot, type: "free" });
   }
+  if (busySlots) {
+    for (const slot of busySlots) {
+      const date = new Date(slot.start).toLocaleDateString("en-CA");
+      if (!grouped[date]) grouped[date] = [];
+      grouped[date].push({ ...slot, type: "busy" });
+    }
+  }
+
+  for (const date of Object.keys(grouped)) {
+    grouped[date].sort((a, b) => a.start.localeCompare(b.start));
+  }
+
+  const sortedDates = Object.keys(grouped).sort();
 
   return (
     <div className="space-y-2 max-h-48 overflow-y-auto">
-      {Object.entries(grouped).map(([date, daySlots]) => (
+      {sortedDates.map((date) => (
         <div key={date}>
           <p className="text-[11px] font-semibold text-foreground mb-0.5">
             {formatDate(date)}
           </p>
           <div className="flex flex-wrap gap-1">
-            {daySlots.map((s) => (
+            {grouped[date].map((s) => (
               <span
-                key={`${s.start}-${s.end}`}
-                className="inline-flex items-center px-2 py-0.5 rounded bg-accent-light text-accent text-[10px] font-medium border border-accent/15"
+                key={`${s.type}-${s.start}-${s.end}`}
+                className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${
+                  s.type === "busy"
+                    ? "bg-gray-100 text-gray-400 border-gray-200"
+                    : "bg-accent-light text-accent border-accent/15"
+                }`}
                 style={{ fontVariantNumeric: "tabular-nums" }}
               >
+                {s.type === "busy" && (
+                  <span className="mr-1 text-[9px] uppercase tracking-wide">Busy</span>
+                )}
                 {formatTime(s.start)} &ndash; {formatTime(s.end)}
               </span>
             ))}
@@ -2007,10 +2046,16 @@ function TimezoneInsightsBanner({
 }) {
   const { goldenHours, participantTimezones, spansTzCount } = insights;
 
-  const formatUtcHour = (h: number) => {
-    const ampm = h >= 12 ? "PM" : "AM";
-    const hr = h % 12 || 12;
-    return `${hr} ${ampm}`;
+  const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const formatHourInLocalTz = (utcHour: number) => {
+    const d = new Date();
+    d.setUTCHours(utcHour, 0, 0, 0);
+    return d.toLocaleTimeString("en-US", {
+      timeZone: userTz,
+      hour: "numeric",
+      hour12: true,
+    });
   };
 
   return (
@@ -2057,8 +2102,8 @@ function TimezoneInsightsBanner({
             <p className="mt-1.5 text-[11px] text-sky-700">
               <span className="font-medium">Best hours for everyone:</span>{" "}
               <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                {formatUtcHour(goldenHours.startUtcHour)}&ndash;
-                {formatUtcHour(goldenHours.endUtcHour)} UTC
+                {formatHourInLocalTz(goldenHours.startUtcHour)}&ndash;
+                {formatHourInLocalTz(goldenHours.endUtcHour)}
               </span>{" "}
               <span className="text-sky-500">
                 ({goldenHours.widthHours}h window)

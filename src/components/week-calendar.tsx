@@ -25,6 +25,7 @@ interface LevelSlot {
 interface WeekCalendarProps {
   slots: TimeSlot[];
   levelSlots?: LevelSlot[];
+  busySlots?: TimeSlot[] | null;
   label?: string;
   participants?: { name: string }[];
   activeParticipants?: Set<string>;
@@ -69,7 +70,7 @@ function formatMonthRange(monday: Date): string {
   return `${m1} ${monday.getDate()} \u2013 ${m2} ${sunday.getDate()}, ${y}`;
 }
 
-export function WeekCalendar({ slots, levelSlots, label, participants, activeParticipants, onToggleParticipant }: WeekCalendarProps) {
+export function WeekCalendar({ slots, levelSlots, busySlots, label, participants, activeParticipants, onToggleParticipant }: WeekCalendarProps) {
   const hasLevels = levelSlots && levelSlots.length > 0;
   const [weekOffset, setWeekOffset] = useState(() => {
     if (slots.length === 0) return 0;
@@ -93,7 +94,7 @@ export function WeekCalendar({ slots, levelSlots, label, participants, activePar
     return getMonday(addDays(today, weekOffset * 7));
   }, [weekOffset]);
 
-  const { hourStart, hourEnd, weekSlots, weekLevelSlots } = useMemo(() => {
+  const { hourStart, hourEnd, weekSlots, weekLevelSlots, weekBusySlots } = useMemo(() => {
     const weekDays: Date[] = [];
     for (let i = 0; i < 7; i++) weekDays.push(addDays(monday, i));
 
@@ -109,6 +110,12 @@ export function WeekCalendar({ slots, levelSlots, label, participants, activePar
       .map((s) => ({ start: new Date(s.start), end: new Date(s.end) }))
       .filter(isInWeek);
 
+    const filteredBusy = busySlots
+      ? busySlots
+          .map((s) => ({ start: new Date(s.start), end: new Date(s.end) }))
+          .filter(isInWeek)
+      : [];
+
     const filteredLevels = hasLevels
       ? levelSlots
           .map((s) => ({
@@ -119,9 +126,12 @@ export function WeekCalendar({ slots, levelSlots, label, participants, activePar
           .filter((s) => isInWeek({ start: s.startDate, end: s.endDate }))
       : [];
 
-    const allSlotDates = hasLevels
-      ? filteredLevels.map((s) => ({ start: s.startDate, end: s.endDate }))
-      : filtered;
+    const allSlotDates = [
+      ...(hasLevels
+        ? filteredLevels.map((s) => ({ start: s.startDate, end: s.endDate }))
+        : filtered),
+      ...filteredBusy,
+    ];
 
     let minH = 8;
     let maxH = 20;
@@ -138,8 +148,9 @@ export function WeekCalendar({ slots, levelSlots, label, participants, activePar
       hourEnd: maxH,
       weekSlots: filtered,
       weekLevelSlots: filteredLevels,
+      weekBusySlots: filteredBusy,
     };
-  }, [monday, slots, levelSlots, hasLevels]);
+  }, [monday, slots, levelSlots, busySlots, hasLevels]);
 
   const totalHours = hourEnd - hourStart;
   const gridHeight = totalHours * HOUR_HEIGHT;
@@ -322,7 +333,32 @@ export function WeekCalendar({ slots, levelSlots, label, participants, activePar
                     />
                   ))}
 
-                  {/* Slot blocks */}
+                  {/* Busy blocks */}
+                  {weekBusySlots.map((slot, si) => {
+                    const style = slotStyle(slot, dayDate);
+                    if (!style) return null;
+                    return (
+                      <motion.div
+                        key={`busy-${dayIdx}-${si}`}
+                        className="week-cal-slot-busy"
+                        style={style}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{
+                          type: "spring",
+                          duration: 0.3,
+                          bounce: 0,
+                          delay: si * 0.02,
+                        }}
+                      >
+                        <span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400 select-none">
+                          Busy
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* Free slot blocks */}
                   {hasLevels
                     ? weekLevelSlots.map((slot, si) => {
                         const style = slotStyle(
@@ -366,7 +402,7 @@ export function WeekCalendar({ slots, levelSlots, label, participants, activePar
       </div>
 
       <AnimatePresence>
-        {weekSlots.length === 0 && weekLevelSlots.length === 0 && (
+        {weekSlots.length === 0 && weekLevelSlots.length === 0 && weekBusySlots.length === 0 && (
           <motion.p
             key="no-slots"
             initial={{ opacity: 0 }}

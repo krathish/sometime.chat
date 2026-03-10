@@ -31,10 +31,6 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Sometime.Chat",
   description: "See when everyone's free",
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
   other: {
     "theme-color": "#bec8d2",
   },

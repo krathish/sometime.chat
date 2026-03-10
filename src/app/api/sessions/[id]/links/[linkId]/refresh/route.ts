@@ -37,9 +37,10 @@ export async function POST(
   }
 
   try {
-    const { slots, newAccessToken } = await fetchCalendarFreeSlots(
+    const { slots, busySlots, newAccessToken } = await fetchCalendarFreeSlots(
       account.accessToken,
-      account.refreshToken
+      account.refreshToken,
+      link.timezone
     );
 
     await db
@@ -47,9 +48,11 @@ export async function POST(
       .set({
         availabilityJson:
           slots.length > 0 ? JSON.stringify(slots) : null,
+        busyJson:
+          busySlots.length > 0 ? JSON.stringify(busySlots) : null,
         parseError:
           slots.length === 0
-            ? "No free slots found in the next 14 days (weekdays, 9AM\u20135PM UTC)"
+            ? "No free slots found in the next 14 days (weekdays, 9AM\u20135PM)"
             : null,
       })
       .where(eq(links.id, linkId));

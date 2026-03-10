@@ -19,6 +19,7 @@ export const links = sqliteTable("links", {
   platform: text("platform").notNull().default("unknown"),
   timezone: text("timezone"),
   availabilityJson: text("availability_json"),
+  busyJson: text("busy_json"),
   parseError: text("parse_error"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

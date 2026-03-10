@@ -42,6 +42,7 @@ export async function GET(
         availability: l.availabilityJson
           ? JSON.parse(l.availabilityJson)
           : null,
+        busySlots: l.busyJson ? JSON.parse(l.busyJson) : null,
         error: l.parseError || null,
         calendarEmail: calAccount?.email ?? null,
         canRefresh: l.platform === "gcal" && !!calAccount,
