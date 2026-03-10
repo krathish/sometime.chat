@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { sessions, links } from "@/lib/db/schema";
+import { sessions, links, invites } from "@/lib/db/schema";
 import { parseAvailability, detectPlatform } from "@/lib/parsers";
 
 interface ManualSlot {
@@ -60,7 +60,7 @@ export async function POST(
   }
 
   const body = await req.json();
-  const { url, personName, slots, timezone } = body;
+  const { url, personName, slots, timezone, inviteId } = body;
 
   if (!personName) {
     return NextResponse.json(
@@ -88,6 +88,10 @@ export async function POST(
       availabilityJson: JSON.stringify(result.valid),
       parseError: null,
     });
+
+    if (inviteId) {
+      await markInviteJoined(inviteId, id);
+    }
 
     return NextResponse.json(
       {
@@ -127,6 +131,10 @@ export async function POST(
     parseError: parseResult.error || null,
   });
 
+  if (inviteId) {
+    await markInviteJoined(inviteId, id);
+  }
+
   return NextResponse.json(
     {
       id: linkId,
@@ -138,4 +146,20 @@ export async function POST(
     },
     { status: 201 }
   );
+}
+
+async function markInviteJoined(inviteId: string, sessionId: string) {
+  try {
+    const invite = await db.query.invites.findFirst({
+      where: and(eq(invites.id, inviteId), eq(invites.sessionId, sessionId)),
+    });
+    if (invite && invite.status !== "joined") {
+      await db
+        .update(invites)
+        .set({ status: "joined", joinedAt: new Date() })
+        .where(eq(invites.id, inviteId));
+    }
+  } catch {
+    // Non-critical — don't block link creation
+  }
 }

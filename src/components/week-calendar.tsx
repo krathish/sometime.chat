@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface TimeSlot {
   start: string;
@@ -22,6 +26,9 @@ interface WeekCalendarProps {
   slots: TimeSlot[];
   levelSlots?: LevelSlot[];
   label?: string;
+  participants?: { name: string }[];
+  activeParticipants?: Set<string>;
+  onToggleParticipant?: (name: string) => void;
 }
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -62,7 +69,7 @@ function formatMonthRange(monday: Date): string {
   return `${m1} ${monday.getDate()} \u2013 ${m2} ${sunday.getDate()}, ${y}`;
 }
 
-export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
+export function WeekCalendar({ slots, levelSlots, label, participants, activeParticipants, onToggleParticipant }: WeekCalendarProps) {
   const hasLevels = levelSlots && levelSlots.length > 0;
   const [weekOffset, setWeekOffset] = useState(() => {
     if (slots.length === 0) return 0;
@@ -176,7 +183,7 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
           <button
             type="button"
             onClick={() => setWeekOffset((w) => w - 1)}
-            className="p-1 rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
+            className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
             aria-label="Previous week"
           >
             <svg
@@ -196,14 +203,15 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
           <button
             type="button"
             onClick={() => setWeekOffset(0)}
-            className="text-[10px] font-medium text-muted hover:text-foreground px-1.5 py-0.5 rounded hover:bg-white/80 transition-colors cursor-pointer"
+            className="text-[10px] font-medium text-muted hover:text-foreground min-h-[32px] px-2 rounded hover:bg-white/80 transition-colors cursor-pointer"
+            aria-label="Go to current week"
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setWeekOffset((w) => w + 1)}
-            className="p-1 rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
+            className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
             aria-label="Next week"
           >
             <svg
@@ -222,6 +230,28 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
           </button>
         </div>
       </div>
+
+      {participants && participants.length > 0 && activeParticipants && onToggleParticipant && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {participants.map((p) => {
+            const isActive = activeParticipants.has(p.name);
+            return (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => onToggleParticipant(p.name)}
+                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium border cursor-pointer transition-all duration-150 ${
+                  isActive
+                    ? "bg-accent text-white border-accent shadow-sm"
+                    : "bg-white/60 text-muted border-border/60 hover:border-border"
+                }`}
+              >
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <p className="text-[11px] text-muted mb-2 tabular-nums">
         {formatMonthRange(monday)}
@@ -358,8 +388,8 @@ function slotLevelGradient(count: number, total: number): string {
   if (ratio >= 1) return "linear-gradient(180deg, #34d399 0%, #10b981 100%)";
   if (ratio >= 0.75) return "linear-gradient(180deg, #6CB4F8 0%, #1A82F7 100%)";
   if (ratio >= 0.5) return "linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%)";
-  if (ratio >= 0.25) return "linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%)";
-  return "linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)";
+  if (ratio >= 0.25) return "linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%)";
+  return "linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%)";
 }
 
 interface CalendarLevelSlotProps {
@@ -368,89 +398,72 @@ interface CalendarLevelSlotProps {
   delay: number;
 }
 
+function formatSlotTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatSlotDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
-  const [hovered, setHovered] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const [tipPos, setTipPos] = useState({ top: 0, left: 0, above: false });
-
-  useEffect(() => {
-    if (!hovered || !ref.current) return;
-
-    function update() {
-      const rect = ref.current!.getBoundingClientRect();
-      const above = rect.top > 200;
-      setTipPos({
-        top: above ? rect.top - 6 : rect.bottom + 6,
-        left: Math.max(100, Math.min(rect.left + rect.width / 2, window.innerWidth - 100)),
-        above,
-      });
-    }
-
-    update();
-    window.addEventListener("scroll", update, true);
-    return () => window.removeEventListener("scroll", update, true);
-  }, [hovered]);
-
-  const tooltip = (
-    <AnimatePresence>
-      {hovered && (
-        <motion.div
-          initial={{ opacity: 0, y: tipPos.above ? 4 : -4, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: tipPos.above ? 4 : -4, scale: 0.96 }}
-          transition={{ type: "spring", duration: 0.2, bounce: 0 }}
-          className="fixed z-[9999] aqua-panel px-3 py-2.5 text-left w-44"
-          style={{
-            top: tipPos.top,
-            left: tipPos.left,
-            transform: `translate(-50%, ${tipPos.above ? "-100%" : "0%"})`,
-            transformOrigin: tipPos.above ? "bottom center" : "top center",
-          }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-        >
-          <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
-            {slot.count} of {slot.total} free
-          </p>
-          <div className="space-y-1">
-            {slot.available.map((name) => (
-              <div key={name} className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                <span className="text-[11px] text-foreground truncate">{name}</span>
-              </div>
-            ))}
-            {slot.unavailable.map((name) => (
-              <div key={name} className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                <span className="text-[11px] text-muted truncate">{name}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
+  const dateLabel = formatSlotDate(slot.start);
+  const timeLabel = `${formatSlotTime(slot.start)} \u2013 ${formatSlotTime(slot.end)}`;
+  const label = `${dateLabel}, ${timeLabel}, ${slot.count} of ${slot.total} free`;
   return (
-    <>
-      <motion.div
-        ref={ref}
-        className="week-cal-slot"
-        style={{
-          ...style,
-          background: slotLevelGradient(slot.count, slot.total),
-          opacity: Math.max(0.4, slot.count / slot.total),
-          cursor: "default",
-        }}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
-        whileHover={{ opacity: 1, scale: 1.04 }}
-        transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onClick={() => setHovered((h) => !h)}
-      />
-      {typeof document !== "undefined" && createPortal(tooltip, document.body)}
-    </>
+    <Popover openOnHover delay={200} closeDelay={100}>
+      <PopoverTrigger asChild>
+        <motion.div
+          tabIndex={0}
+          role="button"
+          aria-label={label}
+          className="week-cal-slot"
+          style={{
+            ...style,
+            background: slotLevelGradient(slot.count, slot.total),
+            opacity: Math.max(0.4, slot.count / slot.total),
+            cursor: "pointer",
+          }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
+          whileHover={{ opacity: 1, scale: 1.04 }}
+          whileFocus={{ opacity: 1, scale: 1.04 }}
+          transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-44 px-3 py-2.5 text-left aqua-panel" sideOffset={6}>
+        <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-0.5">
+          {dateLabel}
+        </p>
+        <p className="text-[11px] font-medium text-foreground mb-0.5" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {timeLabel}
+        </p>
+        <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
+          {slot.count} of {slot.total} free
+        </p>
+        <div className="space-y-1">
+          {slot.available.map((name) => (
+            <div key={name} className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-[11px] text-foreground truncate">{name}</span>
+            </div>
+          ))}
+          {slot.unavailable.map((name) => (
+            <div key={name} className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+              <span className="text-[11px] text-muted truncate">{name}</span>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

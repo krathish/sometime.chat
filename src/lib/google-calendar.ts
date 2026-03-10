@@ -2,7 +2,7 @@ import { google } from "googleapis";
 import type { TimeSlot } from "./parsers/types";
 
 const SCOPES = [
-  "https://www.googleapis.com/auth/calendar.events.readonly",
+  "https://www.googleapis.com/auth/calendar.freebusy",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
 ];
@@ -65,23 +65,22 @@ export async function fetchCalendarFreeSlots(
   const now = new Date();
   const horizon = new Date(now.getTime() + LOOKAHEAD_DAYS * 86400000);
 
-  const { data } = await calendar.events.list({
-    calendarId: "primary",
-    timeMin: now.toISOString(),
-    timeMax: horizon.toISOString(),
-    singleEvents: true,
-    orderBy: "startTime",
-    maxResults: 500,
+  const { data } = await calendar.freebusy.query({
+    requestBody: {
+      timeMin: now.toISOString(),
+      timeMax: horizon.toISOString(),
+      items: [{ id: "primary" }],
+    },
   });
 
-  const busyEvents = (data.items || [])
-    .filter((e) => e.start?.dateTime && e.end?.dateTime)
-    .map((e) => ({
-      start: new Date(e.start!.dateTime!),
-      end: new Date(e.end!.dateTime!),
+  const busyPeriods = (data.calendars?.primary?.busy || [])
+    .filter((b) => b.start && b.end)
+    .map((b) => ({
+      start: new Date(b.start!),
+      end: new Date(b.end!),
     }));
 
-  const slots = invertToFreeSlots(busyEvents, now, horizon);
+  const slots = invertToFreeSlots(busyPeriods, now, horizon);
   return { slots, newAccessToken };
 }
 

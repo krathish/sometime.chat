@@ -2,6 +2,7 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
+  code: text("code").unique(),
   name: text("name"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
@@ -22,6 +23,20 @@ export const links = sqliteTable("links", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
+});
+
+export const invites = sqliteTable("invites", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id")
+    .notNull()
+    .references(() => sessions.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  status: text("status").notNull().default("sent"),
+  sentAt: integer("sent_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  openedAt: integer("opened_at", { mode: "timestamp" }),
+  joinedAt: integer("joined_at", { mode: "timestamp" }),
 });
 
 export const calendarAccounts = sqliteTable("calendar_accounts", {

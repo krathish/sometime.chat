@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Toaster } from "sonner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Providers } from "./providers";
@@ -13,6 +14,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const perfectlyNineties = localFont({
+  src: "./fonts/PerfectlyNineties-Regular.ttf",
+  variable: "--font-perfectly-nineties",
+  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -44,7 +51,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#bec8d2" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${perfectlyNineties.variable} antialiased`}
       >
         <Providers>
           {children}
