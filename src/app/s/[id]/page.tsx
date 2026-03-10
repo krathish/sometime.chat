@@ -922,7 +922,6 @@ export default function SessionPage({
                   ) : (
                     <motion.div
                       key="add-form"
-                      layout
                       initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
                       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                       exit={{ opacity: 0, filter: "blur(4px)" }}
@@ -1267,7 +1266,7 @@ export default function SessionPage({
                             className={`rounded-lg border overflow-hidden ${
                               link.error && !link.availability
                                 ? "border-danger/40 bg-red-50/60"
-                                : "border-border bg-white/60"
+                                : "border-gray-200 bg-white/60"
                             }`}
                           >
                             <div className="group flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:py-2">
