@@ -1,6 +1,10 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend | null = null;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 const FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS || "onboarding@resend.dev";
 
@@ -74,7 +78,7 @@ export async function sendInviteEmail({
 </body>
 </html>`;
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: `Sometime.Chat <${FROM_ADDRESS}>`,
     to,
     subject,
