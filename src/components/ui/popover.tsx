@@ -21,10 +21,13 @@ function PopoverTrigger({
   ...props
 }: PopoverPrimitive.Trigger.Props & { asChild?: boolean }) {
   if (asChild && React.isValidElement(children)) {
+    const isButton =
+      typeof children.type === "string" && children.type === "button"
     return (
       <PopoverPrimitive.Trigger
         data-slot="popover-trigger"
         render={children}
+        nativeButton={isButton}
         {...props}
       />
     )

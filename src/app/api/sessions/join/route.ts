@@ -5,7 +5,7 @@ import { sessions } from "@/lib/db/schema";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const code = searchParams.get("code")?.toUpperCase().trim();
+  const code = searchParams.get("code")?.trim();
 
   if (!code) {
     return NextResponse.json({ error: "Code is required" }, { status: 400 });

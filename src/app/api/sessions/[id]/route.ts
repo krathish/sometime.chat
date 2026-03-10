@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { sessions, links, calendarAccounts } from "@/lib/db/schema";
+import { sessions, links, calendarAccounts, invites } from "@/lib/db/schema";
 import { shortTimezoneLabel } from "@/lib/timezone";
 
 export async function GET(
@@ -28,6 +28,11 @@ export async function GET(
   });
   const calAccountsByLink = new Map(calAccounts.map((a) => [a.linkId, a]));
 
+  const sessionInvites = await db.query.invites.findMany({
+    where: eq(invites.sessionId, id),
+    orderBy: (invites, { desc }) => [desc(invites.sentAt)],
+  });
+
   return NextResponse.json({
     ...session,
     links: sessionLinks.map((l) => {
@@ -44,6 +49,7 @@ export async function GET(
         tzLabel: l.timezone ? shortTimezoneLabel(l.timezone) : null,
       };
     }),
+    invites: sessionInvites,
   });
 }
 

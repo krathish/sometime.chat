@@ -26,6 +26,9 @@ interface WeekCalendarProps {
   slots: TimeSlot[];
   levelSlots?: LevelSlot[];
   label?: string;
+  participants?: { name: string }[];
+  activeParticipants?: Set<string>;
+  onToggleParticipant?: (name: string) => void;
 }
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -66,7 +69,7 @@ function formatMonthRange(monday: Date): string {
   return `${m1} ${monday.getDate()} \u2013 ${m2} ${sunday.getDate()}, ${y}`;
 }
 
-export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
+export function WeekCalendar({ slots, levelSlots, label, participants, activeParticipants, onToggleParticipant }: WeekCalendarProps) {
   const hasLevels = levelSlots && levelSlots.length > 0;
   const [weekOffset, setWeekOffset] = useState(() => {
     if (slots.length === 0) return 0;
@@ -180,7 +183,7 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
           <button
             type="button"
             onClick={() => setWeekOffset((w) => w - 1)}
-            className="p-1 rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
+            className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
             aria-label="Previous week"
           >
             <svg
@@ -200,14 +203,15 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
           <button
             type="button"
             onClick={() => setWeekOffset(0)}
-            className="text-[10px] font-medium text-muted hover:text-foreground px-1.5 py-0.5 rounded hover:bg-white/80 transition-colors cursor-pointer"
+            className="text-[10px] font-medium text-muted hover:text-foreground min-h-[32px] px-2 rounded hover:bg-white/80 transition-colors cursor-pointer"
+            aria-label="Go to current week"
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setWeekOffset((w) => w + 1)}
-            className="p-1 rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
+            className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded hover:bg-white/80 text-muted hover:text-foreground transition-colors cursor-pointer"
             aria-label="Next week"
           >
             <svg
@@ -226,6 +230,28 @@ export function WeekCalendar({ slots, levelSlots, label }: WeekCalendarProps) {
           </button>
         </div>
       </div>
+
+      {participants && participants.length > 0 && activeParticipants && onToggleParticipant && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {participants.map((p) => {
+            const isActive = activeParticipants.has(p.name);
+            return (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => onToggleParticipant(p.name)}
+                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium border cursor-pointer transition-all duration-150 ${
+                  isActive
+                    ? "bg-accent text-white border-accent shadow-sm"
+                    : "bg-white/60 text-muted border-border/60 hover:border-border"
+                }`}
+              >
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <p className="text-[11px] text-muted mb-2 tabular-nums">
         {formatMonthRange(monday)}
@@ -362,8 +388,8 @@ function slotLevelGradient(count: number, total: number): string {
   if (ratio >= 1) return "linear-gradient(180deg, #34d399 0%, #10b981 100%)";
   if (ratio >= 0.75) return "linear-gradient(180deg, #6CB4F8 0%, #1A82F7 100%)";
   if (ratio >= 0.5) return "linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%)";
-  if (ratio >= 0.25) return "linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%)";
-  return "linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)";
+  if (ratio >= 0.25) return "linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%)";
+  return "linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%)";
 }
 
 interface CalendarLevelSlotProps {
@@ -372,25 +398,54 @@ interface CalendarLevelSlotProps {
   delay: number;
 }
 
+function formatSlotTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatSlotDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
+  const dateLabel = formatSlotDate(slot.start);
+  const timeLabel = `${formatSlotTime(slot.start)} \u2013 ${formatSlotTime(slot.end)}`;
+  const label = `${dateLabel}, ${timeLabel}, ${slot.count} of ${slot.total} free`;
   return (
     <Popover openOnHover delay={200} closeDelay={100}>
       <PopoverTrigger asChild>
         <motion.div
+          tabIndex={0}
+          role="button"
+          aria-label={label}
           className="week-cal-slot"
           style={{
             ...style,
             background: slotLevelGradient(slot.count, slot.total),
             opacity: Math.max(0.4, slot.count / slot.total),
-            cursor: "default",
+            cursor: "pointer",
           }}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
           whileHover={{ opacity: 1, scale: 1.04 }}
+          whileFocus={{ opacity: 1, scale: 1.04 }}
           transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
         />
       </PopoverTrigger>
       <PopoverContent className="w-44 px-3 py-2.5 text-left aqua-panel" sideOffset={6}>
+        <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-0.5">
+          {dateLabel}
+        </p>
+        <p className="text-[11px] font-medium text-foreground mb-0.5" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {timeLabel}
+        </p>
         <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-1.5">
           {slot.count} of {slot.total} free
         </p>

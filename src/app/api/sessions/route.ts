@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { sessions } from "@/lib/db/schema";
 
-const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const CODE_CHARS = "0123456789";
 
 function generateCode(length = 6): string {
   let code = "";

@@ -25,6 +25,20 @@ export const links = sqliteTable("links", {
     .$defaultFn(() => new Date()),
 });
 
+export const invites = sqliteTable("invites", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id")
+    .notNull()
+    .references(() => sessions.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  status: text("status").notNull().default("sent"),
+  sentAt: integer("sent_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  openedAt: integer("opened_at", { mode: "timestamp" }),
+  joinedAt: integer("joined_at", { mode: "timestamp" }),
+});
+
 export const calendarAccounts = sqliteTable("calendar_accounts", {
   id: text("id").primaryKey(),
   linkId: text("link_id")

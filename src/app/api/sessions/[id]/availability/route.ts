@@ -39,20 +39,36 @@ export async function GET(
   const participants: { name: string; slotCount: number; timezone: string | null; tzLabel: string | null }[] = [];
   const participantTimezones: ParticipantTz[] = [];
 
+  const nameCounts = new Map<string, number>();
   for (const link of sessionLinks) {
     if (link.availabilityJson) {
+      const count = (nameCounts.get(link.personName) ?? 0) + 1;
+      nameCounts.set(link.personName, count);
+    }
+  }
+
+  const nameIndices = new Map<string, number>();
+  for (const link of sessionLinks) {
+    if (link.availabilityJson) {
+      const idx = (nameIndices.get(link.personName) ?? 0) + 1;
+      nameIndices.set(link.personName, idx);
+      const uniqueName =
+        (nameCounts.get(link.personName) ?? 1) > 1
+          ? `${link.personName} (${idx})`
+          : link.personName;
+
       const slots: TimeSlot[] = JSON.parse(link.availabilityJson);
       allSlots.push(slots);
-      participantSlots.push({ name: link.personName, slots });
+      participantSlots.push({ name: uniqueName, slots });
       participants.push({
-        name: link.personName,
+        name: uniqueName,
         slotCount: slots.length,
         timezone: link.timezone,
         tzLabel: link.timezone ? shortTimezoneLabel(link.timezone) : null,
       });
       if (link.timezone) {
         participantTimezones.push({
-          name: link.personName,
+          name: uniqueName,
           timezone: link.timezone,
         });
       }
