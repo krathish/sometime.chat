@@ -83,11 +83,7 @@ export async function fetchCalendarFreeSlots(
 
   const tz = timezone || "UTC";
   const slots = invertToFreeSlots(busyPeriods, now, horizon, tz);
-
-  const busySlots: TimeSlot[] = busyPeriods.map((b) => ({
-    start: b.start.toISOString(),
-    end: b.end.toISOString(),
-  }));
+  const busySlots = clipToWorkHours(busyPeriods, now, horizon, tz);
 
   return { slots, busySlots, newAccessToken };
 }
@@ -117,6 +113,42 @@ function getTimezoneOffsetMs(date: Date, tz: string): number {
   const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
   const tzStr = date.toLocaleString("en-US", { timeZone: tz });
   return new Date(tzStr).getTime() - new Date(utcStr).getTime();
+}
+
+function clipToWorkHours(
+  events: CalEvent[],
+  now: Date,
+  horizon: Date,
+  tz: string
+): TimeSlot[] {
+  const clipped: TimeSlot[] = [];
+
+  const startDay = new Date(now.toLocaleDateString("en-CA", { timeZone: tz }) + "T00:00:00");
+
+  for (let d = 0; d < LOOKAHEAD_DAYS; d++) {
+    const dayDate = new Date(startDay.getTime() + d * 86400000);
+    const dateStr = dayDate.toISOString().slice(0, 10);
+    const { workStart, workEnd, dayOfWeek } = getWorkBounds(dateStr, tz);
+
+    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+    const effectiveStart = workStart < now ? now : workStart;
+    if (effectiveStart >= workEnd) continue;
+    if (workEnd > horizon) continue;
+
+    for (const event of events) {
+      const visStart = Math.max(event.start.getTime(), effectiveStart.getTime());
+      const visEnd = Math.min(event.end.getTime(), workEnd.getTime());
+      if (visStart >= visEnd) continue;
+
+      clipped.push({
+        start: new Date(visStart).toISOString(),
+        end: new Date(visEnd).toISOString(),
+      });
+    }
+  }
+
+  return clipped;
 }
 
 function invertToFreeSlots(
