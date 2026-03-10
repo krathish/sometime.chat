@@ -74,12 +74,14 @@ export async function fetchCalendarFreeSlots(
     },
   });
 
+  const DAY_MS = 24 * 60 * 60 * 1000;
   const busyPeriods = (data.calendars?.primary?.busy || [])
     .filter((b) => b.start && b.end)
     .map((b) => ({
       start: new Date(b.start!),
       end: new Date(b.end!),
-    }));
+    }))
+    .filter((b) => b.end.getTime() - b.start.getTime() < DAY_MS);
 
   const tz = timezone || "UTC";
   const slots = invertToFreeSlots(busyPeriods, now, horizon, tz);
