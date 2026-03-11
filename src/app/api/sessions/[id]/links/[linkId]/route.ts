@@ -53,3 +53,40 @@ export async function PATCH(
     error: result.error || null,
   });
 }
+
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string; linkId: string }> }
+) {
+  const { id, linkId } = await params;
+  const body = await req.json();
+  const slots = body.slots;
+
+  if (!Array.isArray(slots)) {
+    return NextResponse.json(
+      { error: "slots must be an array" },
+      { status: 400 }
+    );
+  }
+
+  const link = await db.query.links.findFirst({
+    where: and(eq(links.id, linkId), eq(links.sessionId, id)),
+  });
+
+  if (!link) {
+    return NextResponse.json({ error: "Link not found" }, { status: 404 });
+  }
+
+  await db
+    .update(links)
+    .set({
+      availabilityJson: slots.length > 0 ? JSON.stringify(slots) : null,
+      parseError: null,
+    })
+    .where(eq(links.id, linkId));
+
+  return NextResponse.json({
+    id: linkId,
+    slotsFound: slots.length,
+  });
+}
