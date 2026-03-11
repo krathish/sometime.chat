@@ -10,17 +10,23 @@ interface SelectedSlot {
   endTime: string;
 }
 
+interface BusySlot {
+  start: string;
+  end: string;
+}
+
 interface InteractiveCalendarProps {
   selectedSlots: SelectedSlot[];
   onAddSlot: (date: string, startTime: string, endTime: string) => void;
   onRemoveSlot: (slotId: string) => void;
+  busySlots?: BusySlot[];
 }
 
 const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOUR_HEIGHT = 44;
 const SNAP_MINUTES = 30;
-const DEFAULT_HOUR_START = 7;
-const DEFAULT_HOUR_END = 22;
+const DEFAULT_HOUR_START = 6;
+const DEFAULT_HOUR_END = 24;
 const MOBILE_DAYS = 4;
 const MOBILE_BREAKPOINT = 640;
 const LONG_PRESS_MS = 800;
@@ -118,6 +124,7 @@ export function InteractiveCalendar({
   selectedSlots,
   onAddSlot,
   onRemoveSlot,
+  busySlots,
 }: InteractiveCalendarProps) {
   const isMobile = useIsMobile();
   const [weekOffset, setWeekOffset] = useState(0);
@@ -138,11 +145,17 @@ export function InteractiveCalendar({
     return d;
   }, []);
 
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const startDate = useMemo(() => {
     if (isMobile) {
-      return addDays(today, mobileOffset - 1);
+      return addDays(today, mobileOffset);
     }
-    return getMonday(addDays(today, weekOffset * 7));
+    return addDays(today, weekOffset * 7);
   }, [isMobile, today, weekOffset, mobileOffset]);
 
   const visibleCount = isMobile ? MOBILE_DAYS : 7;
@@ -166,6 +179,21 @@ export function InteractiveCalendar({
     },
     [selectedSlots, visibleDates]
   );
+
+  const busyForDay = useMemo(() => {
+    if (!busySlots || busySlots.length === 0) return () => [];
+    const byDate = new Map<string, { startTime: string; endTime: string }[]>();
+    for (const slot of busySlots) {
+      const s = new Date(slot.start);
+      const e = new Date(slot.end);
+      const dateStr = s.toLocaleDateString("en-CA");
+      const startTime = `${pad2(s.getHours())}:${pad2(s.getMinutes())}`;
+      const endTime = `${pad2(e.getHours())}:${pad2(e.getMinutes())}`;
+      if (!byDate.has(dateStr)) byDate.set(dateStr, []);
+      byDate.get(dateStr)!.push({ startTime, endTime });
+    }
+    return (dayIdx: number) => byDate.get(visibleDates[dayIdx]) || [];
+  }, [busySlots, visibleDates]);
 
   function handlePrev() {
     if (isMobile) {
@@ -553,6 +581,7 @@ export function InteractiveCalendar({
               const dayDate = addDays(startDate, dayIdx);
               const isToday = isSameDay(dayDate, today);
               const daySlots = slotsForDay(dayIdx);
+              const dayBusy = busyForDay(dayIdx);
               const preview = drag?.dayIdx === dayIdx ? dragPreviewStyle() : null;
               const hasDraft = mobileDraft?.dayIdx === dayIdx;
 
@@ -576,6 +605,37 @@ export function InteractiveCalendar({
                       style={{ top: hi * HOUR_HEIGHT }}
                     />
                   ))}
+
+                  {isToday && (() => {
+                    const nowMin = now.getHours() * 60 + now.getMinutes();
+                    if (nowMin < hourStart * 60 || nowMin > hourEnd * 60) return null;
+                    const pct = ((nowMin - hourStart * 60) / (totalHours * 60)) * 100;
+                    return (
+                      <div
+                        className="absolute left-0 right-0 z-20 pointer-events-none"
+                        style={{ top: `${pct}%` }}
+                        aria-hidden="true"
+                      >
+                        <div className="absolute -left-[3px] -top-[3px] w-[7px] h-[7px] rounded-full bg-red-500" />
+                        <div className="absolute left-0 right-0 top-0 h-[1.5px] bg-red-500" />
+                      </div>
+                    );
+                  })()}
+
+                  {dayBusy.map((b, bi) => {
+                    const pos = slotPosition(b.startTime, b.endTime);
+                    return (
+                      <div
+                        key={`busy-${bi}`}
+                        className="week-cal-slot-busy pointer-events-none"
+                        style={pos}
+                      >
+                        <span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400 select-none">
+                          Busy
+                        </span>
+                      </div>
+                    );
+                  })}
 
                   {preview && (
                     <div

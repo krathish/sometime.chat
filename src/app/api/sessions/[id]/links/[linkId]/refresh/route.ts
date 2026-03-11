@@ -37,7 +37,7 @@ export async function POST(
   }
 
   try {
-    const { slots, busySlots, newAccessToken } = await fetchCalendarFreeSlots(
+    const { busySlots, newAccessToken } = await fetchCalendarFreeSlots(
       account.accessToken,
       account.refreshToken,
       link.timezone
@@ -46,14 +46,9 @@ export async function POST(
     await db
       .update(links)
       .set({
-        availabilityJson:
-          slots.length > 0 ? JSON.stringify(slots) : null,
         busyJson:
           busySlots.length > 0 ? JSON.stringify(busySlots) : null,
-        parseError:
-          slots.length === 0
-            ? "No free slots found in the next 14 days (weekdays, 9AM\u20135PM)"
-            : null,
+        parseError: null,
       })
       .where(eq(links.id, linkId));
 
@@ -66,10 +61,7 @@ export async function POST(
 
     return NextResponse.json({
       id: linkId,
-      slotsFound: slots.length,
-      error: slots.length === 0
-        ? "No free slots found in the next 14 days"
-        : null,
+      busyCount: busySlots.length,
     });
   } catch (err) {
     console.error("Calendar refresh error:", err);

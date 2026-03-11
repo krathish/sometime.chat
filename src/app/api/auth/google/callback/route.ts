@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     const userInfo = await getUserInfo(tokens.access_token);
     const displayName = personName || userInfo.name || "Unknown";
 
-    const { slots, busySlots, newAccessToken } = await fetchCalendarFreeSlots(
+    const { busySlots, newAccessToken } = await fetchCalendarFreeSlots(
       tokens.access_token,
       tokens.refresh_token,
       timezone
@@ -78,12 +78,9 @@ export async function GET(req: Request) {
       personName: displayName,
       platform: "gcal",
       timezone: timezone || null,
-      availabilityJson: slots.length > 0 ? JSON.stringify(slots) : null,
+      availabilityJson: null,
       busyJson: busySlots.length > 0 ? JSON.stringify(busySlots) : null,
-      parseError:
-        slots.length === 0
-          ? "No free slots found in the next 14 days (weekdays, 9AM\u20135PM)"
-          : null,
+      parseError: null,
     });
 
     await db.insert(calendarAccounts).values({
@@ -98,10 +95,9 @@ export async function GET(req: Request) {
         : null,
     });
 
-    const slotsMsg = slots.length > 0 ? slots.length : 0;
     return NextResponse.redirect(
       new URL(
-        `/s/${sessionId}?gcal=success&slots=${slotsMsg}&name=${encodeURIComponent(displayName + emailLabel)}`,
+        `/s/${sessionId}?gcal=imported&linkId=${linkId}&name=${encodeURIComponent(displayName + emailLabel)}`,
         url.origin
       )
     );

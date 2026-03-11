@@ -8,8 +8,8 @@ const SCOPES = [
 ];
 
 const LOOKAHEAD_DAYS = 14;
-const WORK_DAY_START_HOUR = 9;
-const WORK_DAY_END_HOUR = 17;
+const WINDOW_START_HOUR = 6;
+const WINDOW_END_HOUR = 24;
 
 export function getOAuth2Client(redirectUri?: string) {
   return new google.auth.OAuth2(
@@ -84,10 +84,9 @@ export async function fetchCalendarFreeSlots(
     .filter((b) => b.end.getTime() - b.start.getTime() < DAY_MS);
 
   const tz = timezone || "UTC";
-  const slots = invertToFreeSlots(busyPeriods, now, horizon, tz);
-  const busySlots = clipToWorkHours(busyPeriods, now, horizon, tz);
+  const busySlots = clipToWindow(busyPeriods, now, horizon, tz);
 
-  return { slots, busySlots, newAccessToken };
+  return { slots: [], busySlots, newAccessToken };
 }
 
 interface CalEvent {
@@ -95,29 +94,43 @@ interface CalEvent {
   end: Date;
 }
 
-function getWorkBounds(dateStr: string, tz: string): { workStart: Date; workEnd: Date; dayOfWeek: number } {
-  const workStartLocal = new Date(`${dateStr}T${String(WORK_DAY_START_HOUR).padStart(2, "0")}:00:00`);
-  const workEndLocal = new Date(`${dateStr}T${String(WORK_DAY_END_HOUR).padStart(2, "0")}:00:00`);
-
-  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" });
-  const dayOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
-    formatter.format(workStartLocal)
-  );
-
-  const offsetMs = getTimezoneOffsetMs(workStartLocal, tz);
-  const workStart = new Date(workStartLocal.getTime() - offsetMs);
-  const workEnd = new Date(workEndLocal.getTime() - offsetMs);
-
-  return { workStart, workEnd, dayOfWeek };
-}
-
-function getTimezoneOffsetMs(date: Date, tz: string): number {
-  const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
-  const tzStr = date.toLocaleString("en-US", { timeZone: tz });
+function computeOffsetMs(refDate: Date, tz: string): number {
+  const utcStr = refDate.toLocaleString("en-US", { timeZone: "UTC" });
+  const tzStr = refDate.toLocaleString("en-US", { timeZone: tz });
   return new Date(tzStr).getTime() - new Date(utcStr).getTime();
 }
 
-function clipToWorkHours(
+function getDayWindow(
+  dateStr: string,
+  tz: string
+): { windowStart: Date; windowEnd: Date } {
+  const startRef = new Date(
+    `${dateStr}T${String(WINDOW_START_HOUR).padStart(2, "0")}:00:00Z`
+  );
+  const windowHours = WINDOW_END_HOUR - WINDOW_START_HOUR;
+  const endRef = new Date(startRef.getTime() + windowHours * 3600000);
+
+  const offset = computeOffsetMs(startRef, tz);
+
+  return {
+    windowStart: new Date(startRef.getTime() - offset),
+    windowEnd: new Date(endRef.getTime() - offset),
+  };
+}
+
+function iterateDays(now: Date, tz: string): string[] {
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz });
+  const startDay = new Date(todayStr + "T00:00:00Z");
+  const dates: string[] = [];
+  for (let d = 0; d < LOOKAHEAD_DAYS; d++) {
+    const day = new Date(startDay);
+    day.setUTCDate(day.getUTCDate() + d);
+    dates.push(day.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+function clipToWindow(
   events: CalEvent[],
   now: Date,
   horizon: Date,
@@ -125,22 +138,19 @@ function clipToWorkHours(
 ): TimeSlot[] {
   const clipped: TimeSlot[] = [];
 
-  const startDay = new Date(now.toLocaleDateString("en-CA", { timeZone: tz }) + "T00:00:00");
+  for (const dateStr of iterateDays(now, tz)) {
+    const { windowStart, windowEnd } = getDayWindow(dateStr, tz);
 
-  for (let d = 0; d < LOOKAHEAD_DAYS; d++) {
-    const dayDate = new Date(startDay.getTime() + d * 86400000);
-    const dateStr = dayDate.toISOString().slice(0, 10);
-    const { workStart, workEnd, dayOfWeek } = getWorkBounds(dateStr, tz);
-
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
-    const effectiveStart = workStart < now ? now : workStart;
-    if (effectiveStart >= workEnd) continue;
-    if (workEnd > horizon) continue;
+    const effectiveStart = windowStart < now ? now : windowStart;
+    if (effectiveStart >= windowEnd) continue;
+    if (windowEnd > horizon) continue;
 
     for (const event of events) {
-      const visStart = Math.max(event.start.getTime(), effectiveStart.getTime());
-      const visEnd = Math.min(event.end.getTime(), workEnd.getTime());
+      const visStart = Math.max(
+        event.start.getTime(),
+        effectiveStart.getTime()
+      );
+      const visEnd = Math.min(event.end.getTime(), windowEnd.getTime());
       if (visStart >= visEnd) continue;
 
       clipped.push({
@@ -151,84 +161,6 @@ function clipToWorkHours(
   }
 
   return clipped;
-}
-
-function invertToFreeSlots(
-  events: CalEvent[],
-  now: Date,
-  horizon: Date,
-  tz: string
-): TimeSlot[] {
-  const freeSlots: TimeSlot[] = [];
-  const sorted = [...events].sort(
-    (a, b) => a.start.getTime() - b.start.getTime()
-  );
-
-  const startDay = new Date(now.toLocaleDateString("en-CA", { timeZone: tz }) + "T00:00:00");
-
-  for (let d = 0; d < LOOKAHEAD_DAYS; d++) {
-    const dayDate = new Date(startDay.getTime() + d * 86400000);
-    const dateStr = dayDate.toISOString().slice(0, 10);
-    const { workStart, workEnd, dayOfWeek } = getWorkBounds(dateStr, tz);
-
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
-    const effectiveStart = workStart < now ? now : workStart;
-    if (effectiveStart >= workEnd) continue;
-    if (workEnd > horizon) continue;
-
-    const dayEvents = sorted.filter(
-      (e) => e.start < workEnd && e.end > effectiveStart
-    );
-
-    const merged = mergeEvents(dayEvents);
-
-    let cursor = effectiveStart.getTime();
-    for (const event of merged) {
-      const eventStart = Math.max(
-        event.start.getTime(),
-        effectiveStart.getTime()
-      );
-      if (cursor < eventStart) {
-        freeSlots.push({
-          start: new Date(cursor).toISOString(),
-          end: new Date(eventStart).toISOString(),
-        });
-      }
-      cursor = Math.max(
-        cursor,
-        Math.min(event.end.getTime(), workEnd.getTime())
-      );
-    }
-
-    if (cursor < workEnd.getTime()) {
-      freeSlots.push({
-        start: new Date(cursor).toISOString(),
-        end: workEnd.toISOString(),
-      });
-    }
-  }
-
-  return freeSlots;
-}
-
-function mergeEvents(events: CalEvent[]): CalEvent[] {
-  if (events.length <= 1) return events;
-  const sorted = [...events].sort(
-    (a, b) => a.start.getTime() - b.start.getTime()
-  );
-  const merged: CalEvent[] = [{ ...sorted[0] }];
-
-  for (let i = 1; i < sorted.length; i++) {
-    const last = merged[merged.length - 1];
-    if (sorted[i].start <= last.end) {
-      last.end = sorted[i].end > last.end ? sorted[i].end : last.end;
-    } else {
-      merged.push({ ...sorted[i] });
-    }
-  }
-
-  return merged;
 }
 
 export function buildRedirectUri(requestUrl: string): string {

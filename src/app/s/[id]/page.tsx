@@ -138,6 +138,7 @@ export default function SessionPage({
   const [pendingSlots, setPendingSlots] = useState<PendingSlot[]>([]);
   const [resultsView, setResultsView] = useState<ViewMode>("list");
   const [expandedLink, setExpandedLink] = useState<string | null>(null);
+  const [linkToRemove, setLinkToRemove] = useState<LinkData | null>(null);
   const [participantView, setParticipantView] = useState<ViewMode>("list");
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -147,6 +148,9 @@ export default function SessionPage({
   const [shareTooltipOpen, setShareTooltipOpen] = useState(false);
   const [activeParticipants, setActiveParticipants] = useState<Set<string>>(new Set());
   const [resultsHaveSlots, setResultsHaveSlots] = useState(false);
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [editSlots, setEditSlots] = useState<PendingSlot[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
   const shareTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -186,7 +190,20 @@ export default function SessionPage({
     if (!gcal) return;
     gcalHandled.current = true;
 
-    if (gcal === "success") {
+    if (gcal === "imported") {
+      const linkId = searchParams.get("linkId");
+      const gcalName = searchParams.get("name");
+      playNotify();
+      toast.success(
+        `Google Calendar connected${gcalName ? ` for ${gcalName}` : ""} — now mark your free times`
+      );
+      if (linkId) {
+        setEditingLinkId(linkId);
+        setEditSlots([]);
+      }
+      setLastSubmittedName(gcalName || "");
+      setName(gcalName?.replace(/\s*\(.*\)$/, "") || "");
+    } else if (gcal === "success") {
       const slots = searchParams.get("slots");
       const gcalName = searchParams.get("name");
       playNotify();
@@ -232,6 +249,13 @@ export default function SessionPage({
       if (shareTooltipTimer.current) clearTimeout(shareTooltipTimer.current);
     };
   }, [shareTooltipOpen]);
+
+  useEffect(() => {
+    if (linkToRemove) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [linkToRemove]);
 
   async function handleSendInvites(e: React.FormEvent) {
     e.preventDefault();
@@ -330,11 +354,7 @@ export default function SessionPage({
         return;
       }
 
-      if (data.slotsFound > 0) {
-        toast.success(`Refreshed \u2014 ${data.slotsFound} free slots`);
-      } else {
-        toast("Refreshed, but no free slots found");
-      }
+      toast.success(`Calendar refreshed \u2014 ${data.busyCount ?? 0} busy periods found`);
 
       await fetchSession();
     } catch {
@@ -445,10 +465,73 @@ export default function SessionPage({
       await fetchSession();
       setResults(null);
       if (expandedLink === linkId) setExpandedLink(null);
+      if (editingLinkId === linkId) setEditingLinkId(null);
     } catch {
       playError();
       toast.error("Failed to remove link");
     }
+  }
+
+  function startEditLink(link: LinkData) {
+    const slots: PendingSlot[] = [];
+    if (link.availability) {
+      for (const s of link.availability) {
+        const start = new Date(s.start);
+        const end = new Date(s.end);
+        slots.push({
+          id: `edit-${pendingIdCounter++}`,
+          date: start.toLocaleDateString("en-CA"),
+          startTime: `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`,
+          endTime: `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`,
+        });
+      }
+    }
+    setEditSlots(slots);
+    setEditingLinkId(link.id);
+  }
+
+  async function handleSaveEdit() {
+    if (!editingLinkId || savingEdit) return;
+    playClick();
+    setSavingEdit(true);
+
+    const slots = editSlots.map((s) => ({
+      start: new Date(`${s.date}T${s.startTime}`).toISOString(),
+      end: new Date(`${s.date}T${s.endTime}`).toISOString(),
+    }));
+
+    try {
+      const res = await fetch(`/api/sessions/${id}/links/${editingLinkId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slots }),
+      });
+
+      if (!res.ok) {
+        playError();
+        toast.error("Failed to save availability");
+        return;
+      }
+
+      playNotify();
+      toast.success(`Saved ${slots.length} slots`);
+      setEditingLinkId(null);
+      setEditSlots([]);
+      submitCountRef.current += 1;
+      setHasSubmitted(true);
+      await fetchSession();
+    } catch {
+      playError();
+      toast.error("Something went wrong");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    playClose();
+    setEditingLinkId(null);
+    setEditSlots([]);
   }
 
   async function handleRetry(linkId: string) {
@@ -551,6 +634,14 @@ export default function SessionPage({
 
   function toggleParticipant(name: string) {
     playClick();
+    if (!results) return;
+    const allNames = results.participants.map((p) => p.name);
+
+    if (name === "__all__") {
+      setActiveParticipants(new Set(allNames));
+      return;
+    }
+
     setActiveParticipants((prev) => {
       const next = new Set(prev);
       if (next.has(name)) {
@@ -561,6 +652,10 @@ export default function SessionPage({
       return next;
     });
   }
+
+  const allActive = results
+    ? results.participants.every((p) => activeParticipants.has(p.name))
+    : false;
 
   const filteredResults = useMemo(() => {
     if (!results) return null;
@@ -1318,6 +1413,15 @@ export default function SessionPage({
                                       {link.availability.length} slots
                                     </button>
                                   )}
+                                  {!link.availability && link.busySlots && !editingLinkId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditLink(link)}
+                                      className="text-[11px] text-accent hover:text-accent/70 cursor-pointer transition-colors duration-150"
+                                    >
+                                      Mark free times
+                                    </button>
+                                  )}
                                 </div>
                                 {link.platform === "gcal" &&
                                   link.calendarEmail && (
@@ -1378,7 +1482,7 @@ export default function SessionPage({
 
                               <motion.button
                                 type="button"
-                                onClick={() => handleRemoveLink(link.id)}
+                                onClick={() => setLinkToRemove(link)}
                                 className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 p-1.5 rounded-md hover:bg-danger/10 text-muted hover:text-danger cursor-pointer"
                                 whileTap={{ scale: 0.95 }}
                                 aria-label={`Remove ${link.personName}`}
@@ -1400,9 +1504,56 @@ export default function SessionPage({
                               </motion.button>
                             </div>
 
+                            {/* Editing view */}
+                            <AnimatePresence>
+                              {editingLinkId === link.id && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ type: "spring", duration: 0.35, bounce: 0 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="border-t border-border/50 px-3 py-2.5">
+                                    <InteractiveCalendar
+                                      selectedSlots={editSlots}
+                                      onAddSlot={(date, startTime, endTime) => {
+                                        setEditSlots((prev) => [
+                                          ...prev,
+                                          { id: `edit-${pendingIdCounter++}`, date, startTime, endTime },
+                                        ]);
+                                      }}
+                                      onRemoveSlot={(slotId) => {
+                                        setEditSlots((prev) => prev.filter((s) => s.id !== slotId));
+                                      }}
+                                      busySlots={link.busySlots || undefined}
+                                    />
+                                    <div className="flex items-center justify-end gap-2 mt-2">
+                                      <button
+                                        type="button"
+                                        onClick={handleCancelEdit}
+                                        className="text-[11px] text-muted hover:text-foreground px-3 py-1.5 rounded transition-colors cursor-pointer"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <motion.button
+                                        type="button"
+                                        onClick={handleSaveEdit}
+                                        disabled={savingEdit || editSlots.length === 0}
+                                        className="aqua-btn h-[28px] px-4 text-[11px] disabled:opacity-50"
+                                        whileTap={{ scale: 0.96 }}
+                                      >
+                                        {savingEdit ? "Saving\u2026" : `Save ${editSlots.length} slot${editSlots.length !== 1 ? "s" : ""}`}
+                                      </motion.button>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+
                             {/* Expanded slot detail */}
                             <AnimatePresence>
-                              {expandedLink === link.id && link.availability && (
+                              {expandedLink === link.id && link.availability && editingLinkId !== link.id && (
                                 <motion.div
                                   id={`slot-detail-${link.id}`}
                                   initial={{
@@ -1429,46 +1580,55 @@ export default function SessionPage({
                                       <span className="text-[10px] font-semibold text-muted uppercase tracking-wider">
                                         Availability
                                       </span>
-                                      <ViewToggle
-                                        view={participantView}
-                                        onChange={(v) => {
-                                          playClick();
-                                          setParticipantView(v);
-                                        }}
-                                        id="participant"
-                                      />
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => startEditLink(link)}
+                                          className="text-[10px] text-accent hover:text-accent/70 cursor-pointer transition-colors duration-150"
+                                        >
+                                          Edit
+                                        </button>
+                                        <ViewToggle
+                                          view={participantView}
+                                          onChange={(v) => {
+                                            playClick();
+                                            setParticipantView(v);
+                                          }}
+                                          id="participant"
+                                        />
+                                      </div>
                                     </div>
-                                    <div className="max-h-[280px] overflow-y-auto">
-                                      <AnimatePresence mode="wait" initial={false}>
-                                        {participantView === "list" ? (
-                                          <motion.div
-                                            key="p-list"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            transition={{ duration: 0.15 }}
-                                          >
-                                            <SlotList
-                                              slots={link.availability}
-                                              busySlots={link.busySlots}
-                                            />
-                                          </motion.div>
-                                        ) : (
-                                          <motion.div
-                                            key="p-calendar"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            transition={{ duration: 0.15 }}
-                                          >
-                                            <WeekCalendar
-                                              slots={link.availability}
-                                              busySlots={link.busySlots}
-                                            />
-                                          </motion.div>
-                                        )}
-                                      </AnimatePresence>
-                                    </div>
+                                    <AnimatePresence mode="wait" initial={false}>
+                                      {participantView === "list" ? (
+                                        <motion.div
+                                          key="p-list"
+                                          initial={{ opacity: 0 }}
+                                          animate={{ opacity: 1 }}
+                                          exit={{ opacity: 0 }}
+                                          transition={{ duration: 0.15 }}
+                                          className="max-h-[280px] overflow-y-auto"
+                                        >
+                                          <SlotList
+                                            slots={link.availability}
+                                            busySlots={link.busySlots}
+                                          />
+                                        </motion.div>
+                                      ) : (
+                                        <motion.div
+                                          key="p-calendar"
+                                          initial={{ opacity: 0 }}
+                                          animate={{ opacity: 1 }}
+                                          exit={{ opacity: 0 }}
+                                          transition={{ duration: 0.15 }}
+                                        >
+                                          <WeekCalendar
+                                            slots={link.availability}
+                                            busySlots={link.busySlots}
+                                            maxHeight="280px"
+                                          />
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
                                   </div>
                                 </motion.div>
                               )}
@@ -1592,10 +1752,6 @@ export default function SessionPage({
                     </motion.p>
                   )}
 
-                  {results.timezoneInsights && (
-                    <TimezoneInsightsBanner insights={results.timezoneInsights} />
-                  )}
-
                   {Object.keys(filteredResults?.groupedLevels ?? {}).length === 0 ? (
                     <motion.div
                       {...enterAnim}
@@ -1620,6 +1776,17 @@ export default function SessionPage({
                         >
                           {results.participants.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleParticipant("__all__")}
+                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium border cursor-pointer transition-all duration-150 ${
+                                  allActive
+                                    ? "bg-accent text-white border-accent shadow-sm"
+                                    : "bg-white/60 text-muted border-border/60 hover:border-border"
+                                }`}
+                              >
+                                Show all
+                              </button>
                               {results.participants.map((p) => {
                                 const isActive = activeParticipants.has(p.name);
                                 return (
@@ -1685,10 +1852,18 @@ export default function SessionPage({
                             participants={results.participants}
                             activeParticipants={activeParticipants}
                             onToggleParticipant={toggleParticipant}
+                            maxHeight="320px"
                           />
                         </motion.div>
                       )}
                     </AnimatePresence>
+                  )}
+
+                  {results.timezoneInsights && (
+                    <TimezoneInsightsBanner
+                      insights={results.timezoneInsights}
+                      levelSlots={results.levelSlots}
+                    />
                   )}
                 </div>
               </motion.div>
@@ -1697,6 +1872,69 @@ export default function SessionPage({
           </div>
         </LayoutGroup>
       </div>
+
+      {/* Remove participant confirmation */}
+      <AnimatePresence>
+        {linkToRemove && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => setLinkToRemove(null)}
+              aria-hidden="true"
+            />
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              aria-label={`Remove ${linkToRemove.personName}'s availability`}
+              aria-describedby="remove-confirm-desc"
+              className="aqua-panel fixed top-1/2 left-1/2 z-50 w-full max-w-[280px] -translate-x-1/2 -translate-y-1/2 p-4 focus-visible:ring-2 focus-visible:ring-ring/50 overscroll-contain"
+              style={{ borderColor: "rgba(142,153,164,0.3)" }}
+              initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, scale: 0.97, filter: "blur(4px)" }}
+              transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+              onAnimationStart={() => playClose()}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setLinkToRemove(null);
+              }}
+              tabIndex={-1}
+              ref={(node) => node?.focus()}
+            >
+              <div className="flex flex-col gap-1.5">
+                <h2 className="text-base font-medium text-pretty">
+                  Remove {linkToRemove.personName}&apos;s availability?
+                </h2>
+                <p id="remove-confirm-desc" className="text-sm text-muted-foreground">
+                  This will remove all of {linkToRemove.personName}&apos;s availability from this session.
+                </p>
+              </div>
+              <div className="-mx-4 -mb-4 mt-4 flex flex-col-reverse gap-2 rounded-b-[10px] border-t border-border/40 bg-white/40 p-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setLinkToRemove(null)}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-border/60 bg-white/60 px-2.5 text-sm font-medium hover:bg-white/90 hover:border-border active:scale-[0.97] transition-[background-color,border-color] duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleRemoveLink(linkToRemove.id);
+                    setLinkToRemove(null);
+                  }}
+                  className="aqua-btn-danger inline-flex h-8 items-center justify-center px-3 text-sm focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:outline-none"
+                >
+                  Remove
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
@@ -2041,29 +2279,65 @@ function ErrorBadge({
 
 function TimezoneInsightsBanner({
   insights,
+  levelSlots,
 }: {
   insights: TimezoneInsights;
+  levelSlots: LevelSlot[];
 }) {
-  const { goldenHours, participantTimezones, spansTzCount } = insights;
+  const { participantTimezones, spansTzCount, slotComforts } = insights;
 
-  const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const bestSlot = useMemo(() => {
+    if (levelSlots.length === 0) return null;
 
-  const formatHourInLocalTz = (utcHour: number) => {
-    const d = new Date();
-    d.setUTCHours(utcHour, 0, 0, 0);
-    return d.toLocaleTimeString("en-US", {
-      timeZone: userTz,
+    let best = levelSlots[0];
+    let bestComfort = -1;
+
+    for (const slot of levelSlots) {
+      const isBetterCount = slot.count > best.count;
+      const isSameCount = slot.count === best.count;
+
+      const comfort = slotComforts.find(
+        (c) => c.start === slot.start && c.end === slot.end
+      );
+      const score = comfort?.comfort.overallScore ?? 0;
+
+      if (isBetterCount || (isSameCount && score > bestComfort)) {
+        best = slot;
+        bestComfort = score;
+      }
+    }
+
+    return best;
+  }, [levelSlots, slotComforts]);
+
+  const bestSlotLabel = useMemo(() => {
+    if (!bestSlot) return null;
+    const start = new Date(bestSlot.start);
+    const end = new Date(bestSlot.end);
+    const day = start.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    const startTime = start.toLocaleTimeString("en-US", {
       hour: "numeric",
+      minute: "2-digit",
       hour12: true,
     });
-  };
+    const endTime = end.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return { day, time: `${startTime}\u2013${endTime}`, count: bestSlot.count, total: bestSlot.total };
+  }, [bestSlot]);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", duration: 0.3, bounce: 0 }}
-      className="mb-4 rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2.5"
+      className="mt-4 rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2.5"
     >
       <div className="flex items-start gap-2">
         <svg
@@ -2098,15 +2372,14 @@ function TimezoneInsightsBanner({
               </span>
             ))}
           </div>
-          {goldenHours ? (
+          {bestSlotLabel ? (
             <p className="mt-1.5 text-[11px] text-sky-700">
-              <span className="font-medium">Best hours for everyone:</span>{" "}
+              <span className="font-medium">Best slot for everyone:</span>{" "}
               <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                {formatHourInLocalTz(goldenHours.startUtcHour)}&ndash;
-                {formatHourInLocalTz(goldenHours.endUtcHour)}
+                {bestSlotLabel.day}, {bestSlotLabel.time}
               </span>{" "}
               <span className="text-sky-500">
-                ({goldenHours.widthHours}h window)
+                ({bestSlotLabel.count}/{bestSlotLabel.total} free)
               </span>
             </p>
           ) : (
