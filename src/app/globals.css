@@ -130,6 +130,10 @@
 html {
   color-scheme: light;
   background-color: var(--background);
+  background-image: url("/bg.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
   overscroll-behavior: none;
   scrollbar-width: none;
 }
@@ -138,25 +142,19 @@ html::-webkit-scrollbar {
   display: none;
 }
 
+@media (max-width: 640px) {
+  html {
+    background-position: center top;
+  }
+}
+
 body {
-  background: none;
+  background: transparent;
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   min-height: 100dvh;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: -100px;
-  background-image: url("/bg.png");
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: cover;
-  z-index: -1;
-  pointer-events: none;
 }
 
 :focus-visible {
