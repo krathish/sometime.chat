@@ -6,6 +6,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  TooltipProvider,
 } from "@/components/ui/tooltip";
 
 interface TimeSlot {
@@ -495,7 +496,8 @@ function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
   const timeLabel = `${formatSlotTime(slot.start)} \u2013 ${formatSlotTime(slot.end)}`;
   const label = `${dateLabel}, ${timeLabel}, ${slot.count} of ${slot.total} free`;
   return (
-    <Tooltip delay={200} closeDelay={100}>
+    <TooltipProvider delay={200} closeDelay={100}>
+    <Tooltip>
       <TooltipTrigger
         render={
           <motion.div
@@ -545,5 +547,6 @@ function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
         </div>
       </TooltipContent>
     </Tooltip>
+    </TooltipProvider>
   );
 }
