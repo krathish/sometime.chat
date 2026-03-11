@@ -3,11 +3,10 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 
 interface TimeSlot {
   start: string;
@@ -496,30 +495,28 @@ function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
   const timeLabel = `${formatSlotTime(slot.start)} \u2013 ${formatSlotTime(slot.end)}`;
   const label = `${dateLabel}, ${timeLabel}, ${slot.count} of ${slot.total} free`;
   return (
-    <TooltipProvider delay={200} closeDelay={100}>
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <motion.div
-            tabIndex={0}
-            aria-label={label}
-            className="week-cal-slot"
-            style={{
-              ...style,
-              background: slotLevelGradient(slot.count, slot.total),
-              opacity: Math.max(0.4, slot.count / slot.total),
-              cursor: "default",
-            }}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
-            whileHover={{ opacity: 1, scale: 1.04 }}
-            whileFocus={{ opacity: 1, scale: 1.04 }}
-            transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
-          />
-        }
-      />
-      <TooltipContent
-        className="!flex !flex-col !items-start !w-44 !max-w-none !gap-0 px-3 py-2.5 text-left aqua-panel !bg-popover !text-popover-foreground border border-border/30 shadow-md [&>svg]:hidden"
+    <Popover openOnHover delay={200} closeDelay={100}>
+      <PopoverTrigger asChild>
+        <motion.div
+          tabIndex={0}
+          role="button"
+          aria-label={label}
+          className="week-cal-slot"
+          style={{
+            ...style,
+            background: slotLevelGradient(slot.count, slot.total),
+            opacity: Math.max(0.4, slot.count / slot.total),
+            cursor: "default",
+          }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: Math.max(0.4, slot.count / slot.total), scale: 1 }}
+          whileHover={{ opacity: 1, scale: 1.04 }}
+          whileFocus={{ opacity: 1, scale: 1.04 }}
+          transition={{ type: "spring", duration: 0.3, bounce: 0, delay }}
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        className="!flex !flex-col !items-start !w-44 !max-w-none !gap-0 px-3 py-2.5 text-left aqua-panel border border-border/30 shadow-md"
         sideOffset={6}
       >
         <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-0.5">
@@ -545,8 +542,7 @@ function CalendarLevelSlot({ slot, style, delay }: CalendarLevelSlotProps) {
             </div>
           ))}
         </div>
-      </TooltipContent>
-    </Tooltip>
-    </TooltipProvider>
+      </PopoverContent>
+    </Popover>
   );
 }

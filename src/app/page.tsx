@@ -123,8 +123,28 @@ export default function Home() {
     }
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: "Sometime.Chat",
+    url: "https://sometime.chat",
+    description:
+      "Connect your calendars and find overlapping free time. Supports Calendly, Cal.com, Google Calendar, and Notion Calendar.",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "All",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+  };
+
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <motion.div
         className="max-w-md w-full"
         initial={{ opacity: 0, y: 20, filter: "blur(6px)" }}

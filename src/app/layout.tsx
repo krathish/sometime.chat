@@ -26,13 +26,32 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#bec8d2",
 };
 
 export const metadata: Metadata = {
-  title: "Sometime.Chat",
-  description: "See when everyone's free",
-  other: {
-    "theme-color": "#bec8d2",
+  metadataBase: new URL("https://sometime.chat"),
+  title: {
+    default: "Sometime.Chat",
+    template: "%s – Sometime.Chat",
+  },
+  description:
+    "Connect your calendars and find overlapping free time. Supports Calendly, Cal.com, Google Calendar, and Notion Calendar.",
+  openGraph: {
+    title: "Sometime.Chat",
+    description: "Connect your calendars and find overlapping free time.",
+    url: "https://sometime.chat",
+    siteName: "Sometime.Chat",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sometime.Chat",
+    description: "Connect your calendars and find overlapping free time.",
+  },
+  alternates: {
+    canonical: "https://sometime.chat",
   },
 };
 
@@ -43,9 +62,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <meta name="theme-color" content="#bec8d2" />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${perfectlyNineties.variable} antialiased`}
       >
