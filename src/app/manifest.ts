@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Connect your calendars and find overlapping free time. Supports Calendly, Cal.com, Google Calendar, and Notion Calendar.",
     start_url: "/",
     display: "standalone",
-    background_color: "#bec8d2",
-    theme_color: "#bec8d2",
+    background_color: "#2b8de8",
+    theme_color: "#2b8de8",
     icons: [
       {
         src: "/logo.png",
